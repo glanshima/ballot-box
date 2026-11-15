@@ -9,9 +9,15 @@ export type UploadKind = 'option' | 'nomination-photo' | 'nomination-receipt';
 
 export const UPLOAD_KINDS: readonly UploadKind[] = ['option', 'nomination-photo', 'nomination-receipt'];
 
-export function policyFor(kind: UploadKind) {
+export interface UploadPolicy {
+  allowedContentTypes: string[];
+  maximumSizeInBytes: number;
+  prefix: string;
+}
+
+export function policyFor(kind: UploadKind): UploadPolicy {
   return {
-    allowedContentTypes: [...(kind === 'nomination-receipt' ? RECEIPT_TYPES : IMAGE_TYPES)],
+    allowedContentTypes: kind === 'nomination-receipt' ? [...RECEIPT_TYPES] : [...IMAGE_TYPES],
     maximumSizeInBytes: MAX_UPLOAD_BYTES,
     prefix: kind === 'option' ? 'options' : 'nominations',
   };

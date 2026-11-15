@@ -48,5 +48,6 @@ Where the brief was ambiguous or something had to change, the simplest consisten
 - **Cron runs daily** (Vercel Hobby limit). This is safe because `castVote` enforces `opens_at..closes_at` itself with the database clock; the job only flips `status` so results can be reviewed.
 - **Percentages** are shares of all ballots for a position, including abstentions. A tie for first place is flagged and no winner is highlighted.
 - **Dates**: the browser submits ISO-8601 instants (local time → UTC), so no server time-zone guessing.
-- **Migrations**: generate with `npm run db:generate` and commit `drizzle/` (see README). They were not pre-generated because the project was written without network access to install drizzle-kit.
+- **Migrations**: generate with `npm run db:generate` and commit `drizzle/`. The baseline (`drizzle/0000_curvy_stingray.sql`) is committed, so a fresh database is created with `npm run db:migrate` and CI fails if the schema drifts from the committed migrations (see README for the baseline procedure for databases created with `db:push`).
+- **`pg` is a dev dependency** used only by `drizzle-kit migrate`; the application runtime keeps using the Neon HTTP driver (`@neondatabase/serverless`).
 - **Orphaned blobs**: an image uploaded but never saved (admin abandons the form) is not cleaned up automatically. This is a rare, small leak; delete from the Blob dashboard if needed.

@@ -74,7 +74,24 @@ npm run test:unit      # no database needed
 npm test               # also runs integration tests if TEST_DATABASE_URL is set
 ```
 
-Integration tests (including the 20-parallel-submission concurrency test) need a Neon test branch with the schema applied: `DATABASE_URL=$TEST_DATABASE_URL npm run db:push`.
+Integration tests (including the 20-parallel-submission concurrency test) need a Neon test branch with the schema applied: `DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate`. They use the Neon HTTP driver, so a plain local PostgreSQL instance cannot run them.
+
+### Existing database created with `db:push`
+
+The baseline migration creates every table, so running `npm run db:migrate` against a database that already has the schema (created earlier with `db:push`) fails with "relation already exists". Record the baseline as applied first, then future migrations run normally:
+
+```sql
+CREATE SCHEMA IF NOT EXISTS drizzle;
+CREATE TABLE IF NOT EXISTS drizzle."__drizzle_migrations" (
+  id serial PRIMARY KEY,
+  hash text NOT NULL,
+  created_at bigint
+);
+INSERT INTO drizzle."__drizzle_migrations" (hash, created_at)
+VALUES ('2409091ad8732a201abbfea87db51eb163b2c269cbf9d977b71d2f56c0d3182f', 1794757471374);
+```
+
+The hash is the SHA-256 of `drizzle/0000_curvy_stingray.sql`; `created_at` is the `when` value from `drizzle/meta/_journal.json`. Confirm the existing schema matches (`npm run db:push` can reconcile it) before baselining.
 
 ## Deploy to Vercel
 
