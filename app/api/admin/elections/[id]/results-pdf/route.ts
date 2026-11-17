@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 import { logAudit } from '@/lib/audit';
 import { electionFor, getAdminUser } from '@/lib/authz';
 import { reconcileElection } from '@/lib/integrity';
-import { buildResultsPdf, pdfResponseBody, resultsPayloadHash } from '@/lib/pdf';
+import { buildResultsPdf, pdfResponseBody } from '@/lib/pdf';
 import { checkLimit } from '@/lib/ratelimit';
-import { loadResultsForViewer } from '@/lib/results';
+import { loadResultsForViewer, resultsPayloadHash } from '@/lib/results';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;

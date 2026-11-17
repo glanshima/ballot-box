@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { ResultsImageExport } from '@/components/ResultsImageExport';
 import { ResultsView } from '@/components/ResultsView';
 import { isUuid } from '@/lib/db/queries';
-import { loadResultsForViewer } from '@/lib/results';
+import { loadResultsForViewer, resultsPayloadHash } from '@/lib/results';
 
 // Published results are immutable, so cache the page (ISR). publishElection()
 // calls revalidatePath() so a previously cached "not available" page is replaced.
@@ -21,6 +22,13 @@ export default async function PublicResults({ params }: { params: Promise<{ elec
       <h1 className="mb-1 text-2xl font-bold">{res.election.title}</h1>
       <p className="mb-6 text-sm text-slate-700">Official results</p>
       <ResultsView results={res.results} />
+      <div className="mt-6">
+        <ResultsImageExport
+          title={res.election.title}
+          results={res.results}
+          hash={resultsPayloadHash(electionId, res.results)}
+        />
+      </div>
     </main>
   );
 }

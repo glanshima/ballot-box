@@ -114,6 +114,11 @@ export async function loadResultsForViewer(electionId: string, viewer: Viewer): 
 
 export const sha256Hex = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
 
+/** SHA-256 over the results payload printed in exports. Stable field order matters. */
+export function resultsPayloadHash(electionId: string, results: ElectionResults): string {
+  return sha256Hex(JSON.stringify({ electionId, results }));
+}
+
 export function resultsToCsv(election: Pick<Election, 'title'>, r: ElectionResults): string {
   const rows: (string | number | null)[][] = [['election', 'position', 'option', 'votes', 'percent_of_ballots', 'outcome']];
   for (const p of r.positions) {

@@ -1,7 +1,8 @@
 import { ExportResults } from '@/components/ExportResults';
+import { ResultsImageExport } from '@/components/ResultsImageExport';
 import { ResultsView } from '@/components/ResultsView';
 import { requireElectionPage } from '@/lib/authz';
-import { loadResultsForViewer } from '@/lib/results';
+import { loadResultsForViewer, resultsPayloadHash } from '@/lib/results';
 
 export const metadata = { title: 'Results' };
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,7 @@ export default async function ResultsTab({ params }: { params: Promise<{ id: str
       {election.status === 'open' && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Live view: voting is still open, so these numbers are not final.</p>}
       <ResultsView results={res.results} />
       <ExportResults electionId={id} />
+      <ResultsImageExport title={res.election.title} results={res.results} hash={resultsPayloadHash(id, res.results)} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB } from 'pdf-lib';
 import type { IntegrityReport } from './integrity';
 import type { ElectionResults } from './results';
-import { sha256Hex } from './results';
+import { resultsPayloadHash } from './results';
 
 const PAGE_WIDTH = 595.28; // A4 portrait
 const PAGE_HEIGHT = 841.89;
@@ -309,11 +309,6 @@ export type ResultsPdfInput = {
   exportedBy: string;
   exportedAt: Date;
 };
-
-/** SHA-256 over the canonical results payload that is printed in the PDF. */
-export function resultsPayloadHash(electionId: string, results: ElectionResults): string {
-  return sha256Hex(JSON.stringify({ electionId, results }));
-}
 
 export async function buildResultsPdf(input: ResultsPdfInput): Promise<Uint8Array> {
   const { electionId, title, status, results, integrity, exportedBy, exportedAt } = input;

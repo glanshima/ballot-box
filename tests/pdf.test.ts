@@ -6,9 +6,8 @@ import {
   buildNominationsPdf,
   buildResultsPdf,
   invitationPdfRows,
-  resultsPayloadHash,
 } from '@/lib/pdf';
-import type { ElectionResults } from '@/lib/results';
+import { resultsPayloadHash, type ElectionResults } from '@/lib/results';
 
 const results: ElectionResults = {
   positions: [
