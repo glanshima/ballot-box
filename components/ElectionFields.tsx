@@ -55,6 +55,36 @@ export function ElectionFields({ election, mode = 'full', canSetLive }: {
           <textarea id="nominationPositions" name="nominationPositions" rows={3} className="input" defaultValue={election?.nominationPositions.join('\n') ?? ''} placeholder={'President\nSecretary\nTreasurer'} />
           <p className="hint">One per line. Leave empty if there are no separate positions.</p>
         </div>
+        <div>
+          <label htmlFor="nominationMode" className="label">Who can nominate?</label>
+          <select id="nominationMode" name="nominationMode" className="input" defaultValue={election?.nominationMode ?? 'self'}>
+            <option value="self">Aspirants nominate themselves (public form)</option>
+            <option value="member">Verified members nominate candidates</option>
+          </select>
+          <p className="hint">
+            Member mode checks the nominator&apos;s email against the voter roll with a one-time code. Existing elections keep
+            self-nomination.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label htmlFor="minNominators" className="label">Minimum nominators</label>
+            <input id="minNominators" name="minNominators" type="number" min={1} max={10} className="input" defaultValue={election?.minNominators ?? 2} />
+          </div>
+          <div>
+            <label htmlFor="maxNominators" className="label">Maximum nominators</label>
+            <input id="maxNominators" name="maxNominators" type="number" min={1} max={10} className="input" defaultValue={election?.maxNominators ?? 3} />
+          </div>
+          <div>
+            <label htmlFor="consentHours" className="label">Consent link expires (hours)</label>
+            <input id="consentHours" name="consentHours" type="number" min={1} max={720} className="input" defaultValue={election?.consentHours ?? 72} />
+          </div>
+        </div>
+        <div>
+          <label htmlFor="maxOptionSuggestions" className="label">Maximum poll suggestions</label>
+          <input id="maxOptionSuggestions" name="maxOptionSuggestions" type="number" min={1} max={50} className="input" defaultValue={election?.maxOptionSuggestions ?? 10} />
+          <p className="hint">Used for poll item suggestions. Minimum and maximum nominators apply to candidate elections.</p>
+        </div>
         <label className="flex min-h-11 items-center gap-3 text-sm">
           <input type="checkbox" name="requirePurchaseEvidence" defaultChecked={election?.requirePurchaseEvidence} className="h-5 w-5 accent-indigo-700" />
           Require evidence of nomination-form purchase (otherwise optional)

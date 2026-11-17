@@ -22,10 +22,19 @@ export const electionSchema = z
     nominationPositions: z.array(z.string().trim().min(1).max(100)).max(30),
     requirePurchaseEvidence: z.boolean(),
     nominationInstructions: optText(2000),
+    nominationMode: z.enum(['self', 'member']),
+    minNominators: z.number().int().min(1).max(10),
+    maxNominators: z.number().int().min(1).max(10),
+    consentHours: z.number().int().min(1).max(720),
+    maxOptionSuggestions: z.number().int().min(1).max(50),
     liveResults: z.boolean().optional(),
   })
   .strict()
-  .refine((v) => v.closesAt > v.opensAt, { message: 'Closing time must be after the opening time.', path: ['closesAt'] });
+  .refine((v) => v.closesAt > v.opensAt, { message: 'Closing time must be after the opening time.', path: ['closesAt'] })
+  .refine((v) => v.minNominators <= v.maxNominators, {
+    message: 'Minimum nominators cannot exceed the maximum.',
+    path: ['minNominators'],
+  });
 
 export const optionSchema = z
   .object({
@@ -83,6 +92,16 @@ export const otpRequestSchema = z
 
 export const otpVerifySchema = otpRequestSchema
   .extend({ code: z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code.') })
+  .strict();
+
+export const memberNominationSchema = z
+  .object({
+    electionId: z.string().uuid(),
+    fullName: z.string().trim().min(2, 'The nominee\u2019s full name is required.').max(200),
+    email: z.string().trim().toLowerCase().email('Enter a valid email for the nominee.').max(254),
+    phone: optText(40),
+    position: optText(100),
+  })
   .strict();
 
 export type Choice = z.infer<typeof choiceSchema>;

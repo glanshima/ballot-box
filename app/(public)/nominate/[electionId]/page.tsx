@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getElection, isUuid } from '@/lib/db/queries';
 import { nominationsOpen } from '@/lib/election-rules';
+import { sessionVoter } from '@/lib/nominations/member';
+import { readMemberSession } from '@/lib/nominations/session';
+import { MemberNominationFlow } from './MemberNominationFlow';
 import { NominationForm } from './NominationForm';
 
 export const dynamic = 'force-dynamic';
@@ -24,19 +27,43 @@ export default async function NominatePage({ params }: { params: Promise<{ elect
     );
   }
 
+  const memberMode = e.nominationMode === 'member';
+  let verifiedEmail: string | null = null;
+  if (memberMode) {
+    const session = await readMemberSession(e.id);
+    if (session) verifiedEmail = (await sessionVoter(e.id, session.voterId))?.email ?? null;
+  }
+
   return (
     <main className="mx-auto max-w-xl px-4 py-8">
-      <h1 className="text-2xl font-bold">Nomination form</h1>
+      <h1 className="text-2xl font-bold">{memberMode ? 'Nominate a member' : 'Nomination form'}</h1>
       <p className="mt-1 text-slate-700">{e.title}</p>
+      {memberMode && (
+        <p className="mt-2 text-sm text-slate-600">
+          Only verified members can nominate. Each nominee needs {e.minNominators}&ndash;{e.maxNominators} verified nominators
+          before the organisers ask them for consent.
+        </p>
+      )}
       {e.nominationInstructions && (
         <p className="mt-4 whitespace-pre-line rounded-lg bg-indigo-50 p-3 text-sm text-indigo-950">{e.nominationInstructions}</p>
       )}
-      <NominationForm
-        electionId={e.id}
-        positions={e.nominationPositions}
-        requireEvidence={e.requirePurchaseEvidence}
-        closesAt={e.nominationsCloseAt ? e.nominationsCloseAt.toISOString() : null}
-      />
+      {memberMode ? (
+        <MemberNominationFlow
+          electionId={e.id}
+          positions={e.nominationPositions}
+          minNominators={e.minNominators}
+          maxNominators={e.maxNominators}
+          closesAt={e.nominationsCloseAt ? e.nominationsCloseAt.toISOString() : null}
+          initialEmail={verifiedEmail}
+        />
+      ) : (
+        <NominationForm
+          electionId={e.id}
+          positions={e.nominationPositions}
+          requireEvidence={e.requirePurchaseEvidence}
+          closesAt={e.nominationsCloseAt ? e.nominationsCloseAt.toISOString() : null}
+        />
+      )}
     </main>
   );
 }

@@ -20,6 +20,10 @@ function electionInput(fd: FormData) {
     .filter(Boolean);
   const type = getStr(fd, 'type');
   const candidate = type === 'candidate';
+  const int = (key: string, fallback: number) => {
+    const n = Number.parseInt(getStr(fd, key) ?? '', 10);
+    return Number.isFinite(n) ? n : fallback;
+  };
   return {
     title: getStr(fd, 'title'),
     description: getStr(fd, 'description'),
@@ -32,6 +36,11 @@ function electionInput(fd: FormData) {
     nominationPositions: candidate ? [...new Set(positions)] : [],
     requirePurchaseEvidence: candidate && getBool(fd, 'requirePurchaseEvidence'),
     nominationInstructions: getStr(fd, 'nominationInstructions'),
+    nominationMode: getStr(fd, 'nominationMode') === 'member' ? ('member' as const) : ('self' as const),
+    minNominators: int('minNominators', 2),
+    maxNominators: int('maxNominators', 3),
+    consentHours: int('consentHours', 72),
+    maxOptionSuggestions: int('maxOptionSuggestions', 10),
     liveResults: getBool(fd, 'liveResults'),
   };
 }
@@ -62,6 +71,11 @@ export async function createElection(_p: ActionState, fd: FormData) {
         nominationPositions: v.nominationPositions,
         requirePurchaseEvidence: v.requirePurchaseEvidence,
         nominationInstructions: v.nominationInstructions ?? null,
+        nominationMode: v.nominationMode,
+        minNominators: v.minNominators,
+        maxNominators: v.maxNominators,
+        consentHours: v.consentHours,
+        maxOptionSuggestions: v.maxOptionSuggestions,
       })
       .returning({ id: elections.id });
     if (!row) throw new AppError('Could not create the election.');
@@ -129,6 +143,11 @@ export async function updateElection(electionId: string, _p: ActionState, fd: Fo
           nominationPositions: v.nominationPositions,
           requirePurchaseEvidence: v.requirePurchaseEvidence,
           nominationInstructions: v.nominationInstructions ?? null,
+          nominationMode: v.nominationMode,
+          minNominators: v.minNominators,
+          maxNominators: v.maxNominators,
+          consentHours: v.consentHours,
+          maxOptionSuggestions: v.maxOptionSuggestions,
         })
         .where(eq(elections.id, electionId)),
       db
