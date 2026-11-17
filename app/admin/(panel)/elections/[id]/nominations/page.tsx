@@ -1,14 +1,15 @@
-import { asc, desc, eq, sql } from 'drizzle-orm';
+import { asc, count, desc, eq, sql } from 'drizzle-orm';
 import Image from 'next/image';
 import { ActionForm } from '@/components/ActionForm';
 import { CopyButton } from '@/components/CopyButton';
 import { LocalTime } from '@/components/LocalTime';
 import { StatusBadge } from '@/components/StatusBadge';
+import { purgeNominationAttachments } from '@/lib/actions/attachments';
 import { approveNominee, rejectNominee, sendConsent, sendConsentBulk } from '@/lib/actions/consent';
 import { approveNomination, rejectNomination } from '@/lib/actions/nominations';
-import { requireElectionPage } from '@/lib/authz';
+import { isSuper, requireElectionPage } from '@/lib/authz';
 import { getDb } from '@/lib/db/client';
-import { nominations, nominees, nominators, type Election, type Nominee } from '@/lib/db/schema';
+import { nominationAttachments, nominations, nominees, nominators, type Election, type Nominee } from '@/lib/db/schema';
 import { appUrl } from '@/lib/env';
 import {
   canApproveConsent,
@@ -64,7 +65,19 @@ function groupByPosition(rows: MemberRow[], positions: string[]) {
   return order.map((position) => ({ position, rows: map.get(position)! }));
 }
 
-function MemberNominations({ election, rows, draft }: { election: Election; rows: MemberRow[]; draft: boolean }) {
+function MemberNominations({
+  election,
+  rows,
+  draft,
+  canPurge,
+  attachmentCount,
+}: {
+  election: Election;
+  rows: MemberRow[];
+  draft: boolean;
+  canPurge: boolean;
+  attachmentCount: number;
+}) {
   const nominateUrl = `${appUrl()}/nominate/${election.id}`;
   const ready = rows.filter((r) => r.nominee.status === 'ready');
   const groups = groupByPosition(rows, election.nominationPositions);
@@ -225,13 +238,33 @@ function MemberNominations({ election, rows, draft }: { election: Election; rows
           </section>
         ))
       )}
+
+      {canPurge && attachmentCount > 0 && (
+        <section className="card border-red-200 bg-red-50/20">
+          <h2 className="mb-2 font-bold text-red-800">Delete signatures and proofs</h2>
+          <p className="mb-3 text-sm text-slate-700">
+            Permanently removes the {attachmentCount} private attachment{attachmentCount === 1 ? '' : 's'} members
+            submitted for this election. Nominee details, votes and results are not affected. Download the nominations
+            PDF first if you need a copy; this cannot be undone.
+          </p>
+          <ActionForm
+            action={purgeNominationAttachments.bind(null, election.id)}
+            className="space-y-3"
+            submitLabel="Delete all signatures and proofs"
+            submitClass="btn btn-danger"
+          >
+            <label htmlFor="purgeConfirmTitle" className="label">Type the election title to confirm</label>
+            <input id="purgeConfirmTitle" name="confirmTitle" className="input" autoComplete="off" />
+          </ActionForm>
+        </section>
+      )}
     </div>
   );
 }
 
 export default async function NominationsTab({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { election } = await requireElectionPage(id);
+  const { user, election } = await requireElectionPage(id);
   const db = getDb();
   const draft = election.status === 'draft';
 
@@ -244,7 +277,20 @@ export default async function NominationsTab({ params }: { params: Promise<{ id:
       .from(nominees)
       .where(eq(nominees.electionId, id))
       .orderBy(asc(nominees.position), desc(nominees.createdAt));
-    return <MemberNominations election={election} rows={rows} draft={draft} />;
+    const [attachments] = await db
+      .select({ n: count() })
+      .from(nominationAttachments)
+      .innerJoin(nominators, eq(nominationAttachments.nominatorId, nominators.id))
+      .where(eq(nominators.electionId, id));
+    return (
+      <MemberNominations
+        election={election}
+        rows={rows}
+        draft={draft}
+        canPurge={isSuper(user)}
+        attachmentCount={Number(attachments?.n ?? 0)}
+      />
+    );
   }
 
   const list = await db

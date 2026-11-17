@@ -29,8 +29,23 @@ so it is safe to migrate before deploying the new build.
    DATABASE_URL="<prod pooled url>" npm run db:migrate
    ```
 
-3. Confirm the five tables exist and the five `elections` columns are present.
-4. Deploy the build that contains this code.
+3. Confirm the five tables exist and the five `elections` columns are present:
+
+   ```sql
+   SELECT table_name FROM information_schema.tables
+   WHERE table_schema = 'public'
+     AND table_name IN ('member_otps','nominees','nominators','nomination_attachments','option_suggestions');
+
+   SELECT column_name, column_default FROM information_schema.columns
+   WHERE table_schema = 'public' AND table_name = 'elections'
+     AND column_name IN ('nomination_mode','min_nominators','max_nominators','consent_hours','max_option_suggestions');
+   ```
+
+   Existing elections must still report `nomination_mode = 'self'`.
+
+4. Deploy the build that contains this code. Member mode stays dormant until an
+   admin switches a draft election; the pre-0004 build keeps working if the
+   migration is applied first.
 
 Do not run `npm run seed`, `db:push`, or integration tests against production.
 

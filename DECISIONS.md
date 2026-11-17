@@ -10,12 +10,15 @@ Where the brief was ambiguous or something had to change, the simplest consisten
 | Create, deactivate, reset admins; assign admins to elections | yes | no |
 | Edit title, description, type, times, options, images (draft) | yes | yes |
 | Manage nomination form settings and review nominations (draft) | yes | yes |
+| Enable member mode, set nominator limits and review member nominees (draft) | yes | yes |
+| Send consent links, approve accepted nominees, review poll suggestions (draft) | yes | yes |
+| Purge stored signatures and proofs | yes | **no** |
 | Manage voters, send invitations, export links | yes | yes |
 | Extend `closes_at` while open (audit-logged) | yes | yes |
 | Launch (draft → open) | yes | yes |
 | Close early, publish, choose public/private results | yes | **no** |
 | Toggle `live_results` | yes | **no** |
-| View results / export CSV (when visible per the rules) | yes | yes (read-only) |
+| View results / export CSV or PDF (when visible per the rules) | yes | yes (read-only) |
 | Modify ballots / results | **nobody** | **nobody** |
 
 - "Without being able to alter results" is enforced three ways: (1) no code path anywhere updates or deletes ballot rows; (2) everything that controls *when and to whom* results appear (close, publish, public visibility, live view) is super-admin-only; (3) admins can only edit an election while it is a draft, when no ballots can exist.
@@ -31,6 +34,20 @@ Where the brief was ambiguous or something had to change, the simplest consisten
 - Public uploads are possible only through `/api/upload` while that election's nominations are open, rate-limited per IP, 2 MB, type-restricted by the Blob token. Submissions are rate-limited and Zod-validated, and the uploaded URL/path must be one of *our* blob URLs for *that* election.
 - **Known limitation:** Vercel Blob objects served through public URLs are unlisted but not access-controlled. Receipts get unguessable random names and URLs are shown only to admins, but anyone holding a URL can fetch it. Do not collect anything more sensitive than a payment receipt.
 
+## Member nominations, consent, suggestions and exports
+
+- **Per-election opt-in, additive schema.** `elections.nomination_mode` defaults to `'self'`; the migration adds only tables and defaulted columns. The old build keeps serving traffic after it is applied. Existing elections are untouched until an admin switches a draft election to `member`.
+- **Separate `nominees` / `nominators` / `option_suggestions` tables** instead of reusing `nominations`. The member flow has consent state, multiple nominators per nominee and a unique position; poll suggestions have no position or photo/consent. Keeping them separate avoids making the existing `nominations` columns nullable and keeps the old flow's constraints intact.
+- **Nominator identity is the voter row.** `nominators.voter_id` exists only to dedupe and is never exposed on the ballot side. A member may nominate different people, and the same person for several positions; the unique constraint is `(nominee_id, voter_id)`. Self-nomination is refused case-insensitively.
+- **OTP sessions are stateless.** Codes are HMAC-hashed with keys derived from `AUTH_SECRET`; the member cookie is a signed 30-minute payload scoped to one election and voter. No session table and no Auth.js session. Request responses are identical for roll and non-roll addresses.
+- **Consent is an admin action.** A nominee becomes `ready` at `min_nominators`; only then can an admin send a hashed, single-use, `consent_hours`-lived link. Sending again rotates it. The nominee must add their own photo and optional bio, or decline. Approval is draft-only and inserts the option plus updates the nominee in one `db.batch`.
+- **Attachments are private Postgres base64** (locked decision): proof of membership and signature, magic-byte verified, 2 MB cap. They are never public blobs. WebP proofs cannot be embedded by pdf-lib and are noted instead in the PDF.
+- **Signature is drawn by default.** `SignaturePad` exports a trimmed white PNG; uploading a scan is always visible as an alternative. A blank canvas cannot be submitted.
+- **Poll suggestions are capped and deduplicated.** Titles are normalised (trim, collapse whitespace, lower-case). Pending + approved suggestions count toward `max_option_suggestions`; rejected ones do not. Concurrent submissions can briefly exceed the cap; admin review is the final gate, the same scale assumption as the nominator race.
+- **Exports are server-rendered where possible.** Results and nominations PDFs use `pdf-lib`; the results image is drawn client-side from data already on the page. The invitations PDF queries an explicit column whitelist (`name`, `email`, `inviteStatus`, `hasVoted`) with no token column, so links cannot leak. Row/attachment caps keep the functions inside `maxDuration = 60`.
+- **Integrity reconciliation is read-only.** `lib/integrity.ts` re-derives `ballots = voted × positions` and position agreement. It never repairs or writes ballots.
+- **Retention purge.** A super admin can delete all signatures/proofs for an election after typing its title; the count is audit-logged. This is the only path that removes already-stored member data, and it leaves nominees, votes and results intact.
+
 ## Other decisions
 
 - **Server Actions for admin mutations instead of `/api/admin/*` JSON routes.** Each action re-checks the session and election access itself; middleware also guards `/admin` and `/api/admin`. Server Actions get built-in Origin/Host CSRF protection from Next.js, and middleware additionally requires same-origin on every unsafe method under `/admin` and `/api/admin`. Admin routes that need file responses (results export, link export) are real route handlers under `/api/admin`.
@@ -45,7 +62,7 @@ Where the brief was ambiguous or something had to change, the simplest consisten
 - **ISR for published results**: `revalidate = 3600`, plus `revalidatePath` on publish so a cached "not available" page is replaced immediately.
 - **CSP uses `'unsafe-inline'` for scripts/styles**, because Next.js inlines bootstrap scripts. A nonce-based CSP is the next hardening step.
 - **Referrer-Policy is `no-referrer` site-wide** (superset of the `/vote/*` requirement).
-- **Rate limiter fails open** if Upstash is unreachable (voters are not locked out by an outage) and is a no-op with a console warning when env vars are missing.
+- **Rate limiting has two failure policies.** Voter-facing presets (vote, token page, public results, admin password reset) use `checkLimit`, which fails **open** so an Upstash outage cannot stop voting. Presets for anything that sends email or accepts uploads (invitations, OTP request/verify, member nominations, suggestions, consent submissions, exports) use `checkLimitClosed`, which fails **closed**: with Upstash missing or unreachable those requests are refused. This is a deliberate availability/safety split; no new sensitive endpoint uses the fail-open helper.
 - **Cron runs daily** (Vercel Hobby limit). This is safe because `castVote` enforces `opens_at..closes_at` itself with the database clock; the job only flips `status` so results can be reviewed.
 - **Percentages** are shares of all ballots for a position, including abstentions. A tie for first place is flagged and no winner is highlighted.
 - **Dates**: the browser submits ISO-8601 instants (local time → UTC), so no server time-zone guessing.

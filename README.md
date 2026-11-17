@@ -6,8 +6,10 @@ Small, secure online voting for clubs, associations and cooperatives, plus gener
 - **Admins** set up and edit the elections assigned to them (name, times, options, images, nominations, voters, invitations). They can never alter results.
 - **Voters** use one-time personal links (no accounts).
 - **Aspirants** can submit a public **nomination form** with a photo and optional evidence of form purchase; admins approve them into candidates.
+- **Member mode** (opt-in per election) lets verified members nominate candidates with proof of membership and an on-screen signature, and lets nominees accept or decline through a single-use consent link. Polls in member mode accept member-suggested items for admin approval. See [`docs/NOMINATIONS.md`](docs/NOMINATIONS.md).
+- **Exports**: results, nominations and an invitations status report as PDF; results also as PNG/JPEG. The invitations report never contains voting links.
 
-Stack: Next.js 15 (App Router, TypeScript strict), Tailwind 3, Neon Postgres + Drizzle, Auth.js (credentials), Zod, Upstash rate limiting, Resend, Vercel Blob, Vercel Cron, Vitest. See `DECISIONS.md` for every design decision.
+Stack: Next.js 15 (App Router, TypeScript strict), Tailwind 3, Neon Postgres + Drizzle, Auth.js (credentials), Zod, Upstash rate limiting, Resend, Vercel Blob, Vercel Cron, pdf-lib, Vitest. See `DECISIONS.md` for every design decision.
 
 ## Local setup
 
@@ -69,13 +71,27 @@ Sending domain: `ballotbox.sidgakstech.me`, a subdomain so the root domain's Zoh
 5. Voting happens at `/vote/<token>`: select → review → submit → "Vote recorded".
 6. When voting ends (cron or the super admin closes early) the super admin **publishes** results and chooses whether the public page `/results/<electionId>` is visible. Admins can view results (read-only) once closed, and export a CSV whose SHA-256 is shown and stored in the audit log.
 
+### Member mode (opt-in per draft election)
+
+Switch `nomination_mode` to `member` on the Details tab. Members verify their roll email with a one-time code, nominate a person for a position (with optional proof of membership and an on-screen signature), and the nominee accepts or declines a single-use consent link before an admin can approve them onto the ballot. Minimum/maximum nominator counts, consent lifetime and the poll-suggestion cap are per-election settings. Poll elections in member mode accept member-suggested items with duplicate detection and admin review. Full flow, privacy text, retention and the super-admin attachment purge are in [`docs/NOMINATIONS.md`](docs/NOMINATIONS.md).
+
 ## Security model
 
 - Tokens: 32 random bytes, URL-safe; only the SHA-256 hash is stored; single use; expire at the election close time.
 - Atomic vote: a single SQL statement (data-modifying CTE) flips `has_voted` and inserts ballots together, checking token expiry and the open window with the database clock. Concurrent submissions with one token produce exactly one result.
 - Results visibility and open/close windows are enforced only on the server.
-- Rate limits on voting, token pages, login, nominations and uploads; Zod `.strict()` validation everywhere; CSRF via same-site cookies plus Origin checks; CSP, `X-Frame-Options`, `nosniff`, `Referrer-Policy: no-referrer`; `/vote/*` and `/admin/*` are `no-store` + `noindex`.
+- Rate limits on voting, token pages, login, nominations, uploads, OTP requests and exports; Zod `.strict()` validation everywhere; CSRF via same-site cookies plus Origin checks; CSP, `X-Frame-Options`, `nosniff`, `Referrer-Policy: no-referrer`; `/vote/*` and `/admin/*` are `no-store` + `noindex`.
+- Member verification uses HMAC-hashed one-time codes (10-minute expiry, 5 attempts) and a signed, HttpOnly, 30-minute election-scoped cookie. OTP responses never reveal whether an address is on the roll.
+- Proof-of-membership files and signatures are stored privately in Postgres (never public URLs), magic-byte verified, capped at 2 MB, and included only in the authenticated nominations PDF. A super admin can purge them per election, audit-logged.
+- New email, upload and OTP rate-limit presets **fail closed** when Upstash is missing or unreachable. Voter-facing vote/token/read presets still fail open so an Upstash outage cannot stop voting.
+- The invitations status PDF selects an explicit column whitelist, so it can never contain voting links or token hashes.
 - No raw tokens, full emails or ballot contents are logged.
+
+## Security documentation
+
+- [`docs/SECURITY_AUDIT.md`](docs/SECURITY_AUDIT.md) — controls and residual risks.
+- [`docs/NOMINATIONS.md`](docs/NOMINATIONS.md) — member flow, privacy text and retention.
+- [`docs/MIGRATIONS.md`](docs/MIGRATIONS.md) — additive migration and rollback SQL.
 
 ### Ballot secrecy: residual trust assumption
 
@@ -95,7 +111,7 @@ npm run test:unit      # no database needed
 npm test               # also runs integration tests if TEST_DATABASE_URL is set
 ```
 
-Integration tests (including the 20-parallel-submission concurrency test) need a Neon test branch with the schema applied: `DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate`. They use the Neon HTTP driver, so a plain local PostgreSQL instance cannot run them.
+Integration tests (including the 20-parallel-submission concurrency test) need a Neon test branch with the schema applied: `DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate`. They use the Neon HTTP driver, so a plain local PostgreSQL instance cannot run them. `tests/integration/nominations.test.ts` covers the member-mode unique constraints, nominator counting, the consent flow and export permissions, and is skipped when `TEST_DATABASE_URL` is absent.
 
 ### Existing database created with `db:push`
 
@@ -120,6 +136,6 @@ The hash is the SHA-256 of `drizzle/0000_curvy_stingray.sql`; `created_at` is th
 2. Add integrations/services: **Neon** (Vercel Marketplace; copy the *pooled* URL to `DATABASE_URL`), **Upstash Redis** (Marketplace), **Vercel Blob** (Storage tab → creates `BLOB_READ_WRITE_TOKEN`), **Resend** (API key + verified sender → `RESEND_API_KEY`, `EMAIL_FROM`).
 3. Set the remaining env vars (`AUTH_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` unescaped, `APP_URL`, `CRON_SECRET`) for Production and Preview (use a separate Neon branch for Preview).
 4. Run migrations against the production database from your machine: `DATABASE_URL=<prod pooled url> npm run db:migrate`, then seed the first super admin: `DATABASE_URL=<prod pooled url> npm run db:bootstrap`. Optionally seed demo data (`npm run seed`), then delete it.
-5. Deploy. Verify: `/` loads the landing page and admin sign-in works; create an election; upload an image; send or export a link; vote; close and publish.
+5. Deploy. Verify: `/` loads the landing page and admin sign-in works; create an election; upload an image; send or export a link; vote; close and publish. For member mode, follow the smoke test in [`docs/NOMINATIONS.md`](docs/NOMINATIONS.md#deploy-checklist-live-system) on a throwaway election before switching real elections.
 6. Cron: Vercel → Project → Settings → Cron Jobs shows `/api/cron/close-elections`. Test with `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/cron/close-elections` (expect `{"closed":0}` or a count).
 7. After confirming the super admin can sign in, `ADMIN_PASSWORD_HASH` is no longer needed at runtime. Keep or remove it deliberately: `db:bootstrap` is the only reader. If you are ever locked out, generate a new hash, set `ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH`, and run `DATABASE_URL=<prod pooled url> npm run db:bootstrap -- --reset-password`. That is the break-glass path: it sets the password, makes the account an active super admin, and signs out its existing sessions.
