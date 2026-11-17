@@ -11,6 +11,11 @@ const PRESETS = {
   loginEmail: { n: 8, w: '10 m' as Window }, // per account
   nominate: { n: 5, w: '10 m' as Window }, // per IP
   upload: { n: 30, w: '10 m' as Window }, // per IP
+  otpRequestIp: { n: 5, w: '15 m' as Window }, // per IP
+  otpRequestEmail: { n: 5, w: '15 m' as Window }, // per election + email hash
+  otpVerifyIp: { n: 10, w: '15 m' as Window }, // per IP
+  otpVerifyEmail: { n: 10, w: '15 m' as Window }, // per election + email hash
+  emailSend: { n: 6, w: '10 m' as Window }, // per admin sending invitation email batches
   api: { n: 60, w: '1 m' as Window }, // generic read endpoints
   passwordReset: { n: 3, w: '1 h' as Window }, // per IP
   passwordResetEmail: { n: 3, w: '1 h' as Window }, // per account
@@ -60,6 +65,22 @@ export async function checkLimit(name: LimitName, key: string): Promise<boolean>
   } catch {
     console.error('[ratelimit] backend error; allowing request');
     return true;
+  }
+}
+
+/**
+ * Fails CLOSED. Required for endpoints that send email or accept uploads: if the
+ * limiter is missing or unreachable, the request is refused.
+ */
+export async function checkLimitClosed(name: LimitName, key: string): Promise<boolean> {
+  const limiter = getLimiter(name);
+  if (!limiter) return false;
+  try {
+    const { success } = await limiter.limit(key);
+    return success;
+  } catch {
+    console.error('[ratelimit] backend error; refusing request');
+    return false;
   }
 }
 

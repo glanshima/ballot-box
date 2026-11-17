@@ -4,7 +4,7 @@ import { getDb } from '@/lib/db/client';
 import { getElection } from '@/lib/db/queries';
 import { nominations } from '@/lib/db/schema';
 import { nominationsOpen } from '@/lib/election-rules';
-import { checkLimit, getClientIp } from '@/lib/ratelimit';
+import { checkLimitClosed, getClientIp } from '@/lib/ratelimit';
 import { isOwnUpload } from '@/lib/upload-policy';
 import { nominationSchema } from '@/lib/validators';
 
@@ -16,7 +16,7 @@ const fail = (error: string, status: number) => NextResponse.json({ ok: false, e
 export async function POST(request: Request) {
   const origin = request.headers.get('origin');
   if (origin && origin !== new URL(request.url).origin) return fail('Forbidden', 403);
-  if (!(await checkLimit('nominate', getClientIp(request.headers)))) {
+  if (!(await checkLimitClosed('nominate', getClientIp(request.headers)))) {
     return fail('Too many submissions. Please try again later.', 429);
   }
 

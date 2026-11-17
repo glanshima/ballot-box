@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { electionFor, getAdminUser } from '@/lib/authz';
 import { getElection, isUuid } from '@/lib/db/queries';
 import { nominationsOpen } from '@/lib/election-rules';
-import { checkLimit, getClientIp } from '@/lib/ratelimit';
+import { checkLimitClosed, getClientIp } from '@/lib/ratelimit';
 import { pathnameAllowed, policyFor, UPLOAD_KINDS } from '@/lib/upload-policy';
 
 export const dynamic = 'force-dynamic';
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
         const kind = parsed.data.kind as 'option' | 'nomination-photo' | 'nomination-receipt';
         const { electionId } = parsed.data;
         if (!isUuid(electionId) || !pathnameAllowed(kind, electionId, pathname)) throw new Error('Invalid path');
-        if (!(await checkLimit('upload', ip))) throw new Error('Rate limited');
+        if (!(await checkLimitClosed('upload', ip))) throw new Error('Rate limited');
 
         const election = await getElection(electionId);
         if (!election) throw new Error('Not found');

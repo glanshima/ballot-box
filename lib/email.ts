@@ -35,8 +35,7 @@ export async function sendInvitationEmail(args: {
 }
 
 /** Throws on failure; the caller keeps the public response generic either way. */
-export async function sendPasswordResetEmail(args: { to: string; name: string; link: string }) {
-  const env = getEnv();
+export async function sendPasswordResetEmail(args: { to: string; name: string; link: string }) {  const env = getEnv();
   if (!env.RESEND_API_KEY || !env.EMAIL_FROM) {
     throw new Error('Email is not configured (RESEND_API_KEY / EMAIL_FROM).');
   }
@@ -54,6 +53,38 @@ export async function sendPasswordResetEmail(args: { to: string; name: string; l
       `<p>${greeting}</p><p>Use the link below to set a new password.</p>` +
       `<p><a href="${esc(args.link)}">Set a new password</a></p>` +
       `<p style="color:#555">This link expires in 30 minutes and works once. If you did not request it, ignore this email.</p>`,
+  });
+  if (error) throw new Error('Email provider rejected the message');
+}
+
+/** One-time code proving the recipient is on an election's voter roll. Throws on failure. */
+export async function sendNominationOtpEmail(args: {
+  to: string;
+  name: string | null;
+  electionTitle: string;
+  code: string;
+  minutes: number;
+}) {
+  const env = getEnv();
+  if (!env.RESEND_API_KEY || !env.EMAIL_FROM) {
+    throw new Error('Email is not configured (RESEND_API_KEY / EMAIL_FROM).');
+  }
+  const resend = new Resend(env.RESEND_API_KEY);
+  const greeting = args.name ? `Hello ${esc(args.name)},` : 'Hello,';
+  const { error } = await resend.emails.send({
+    from: env.EMAIL_FROM,
+    to: args.to,
+    subject: `Your nomination code: ${args.electionTitle}`,
+    text:
+      `${args.name ? `Hello ${args.name},` : 'Hello,'}\n\n` +
+      `Your code to nominate in "${args.electionTitle}" is:\n\n${args.code}\n\n` +
+      `It expires in ${args.minutes} minutes and can be used once.\n` +
+      `If you did not request this, you can ignore this email.\n`,
+    html:
+      `<p>${greeting}</p><p>Your code to nominate in <strong>${esc(args.electionTitle)}</strong> is:</p>` +
+      `<p style="font-size:28px;letter-spacing:6px;font-weight:700">${esc(args.code)}</p>` +
+      `<p style="color:#555">It expires in ${args.minutes} minutes and can be used once. ` +
+      `If you did not request it, ignore this email.</p>`,
   });
   if (error) throw new Error('Email provider rejected the message');
 }

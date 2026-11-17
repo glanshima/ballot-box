@@ -8,6 +8,7 @@ type E = {
   closesAt: Date;
   nominationsEnabled: boolean;
   nominationsCloseAt: Date | null;
+  nominationMode?: 'self' | 'member';
 };
 
 /** Options, voters and timings may only be edited while the election is a draft. */
@@ -49,4 +50,9 @@ export function nominationsOpen(e: E, now: Date): boolean {
     e.nominationsEnabled &&
     (e.nominationsCloseAt === null || now < e.nominationsCloseAt)
   );
+}
+
+/** Member-verified nominations (voter-roll email + one-time code) for this election. */
+export function memberNominationsOpen(e: E, now: Date): boolean {
+  return e.nominationMode === 'member' && nominationsOpen(e, now);
 }

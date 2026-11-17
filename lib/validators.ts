@@ -74,4 +74,15 @@ export const nominationSchema = z
   .strict()
   .refine((v) => !!v.receiptUrl === !!v.receiptPath, { message: 'Invalid receipt upload.' });
 
+export const otpRequestSchema = z
+  .object({
+    electionId: z.string().uuid(),
+    email: z.string().trim().toLowerCase().email('Enter a valid email.').max(254),
+  })
+  .strict();
+
+export const otpVerifySchema = otpRequestSchema
+  .extend({ code: z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code.') })
+  .strict();
+
 export type Choice = z.infer<typeof choiceSchema>;

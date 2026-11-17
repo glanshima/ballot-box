@@ -10,6 +10,7 @@ import { isUuid } from '@/lib/db/queries';
 import { voters, type Election } from '@/lib/db/schema';
 import { sendInvitationEmail } from '@/lib/email';
 import { issueToken, sleep } from '@/lib/invitations';
+import { checkLimitClosed } from '@/lib/ratelimit';
 
 // NOTE: a 'use server' file may only export async functions, so `maxDuration`
 // is exported from the invitations page instead (app/admin/.../invitations/page.tsx).
@@ -42,6 +43,9 @@ export async function sendInvitations(electionId: string, _p: ActionState, fd: F
   return run(async () => {
     const { user, election } = await requireElectionAction(electionId);
     assertInvitable(election);
+    if (!(await checkLimitClosed('emailSend', user.email))) {
+      throw new AppError('Too many email batches. Please wait a few minutes and try again.');
+    }
     const size = Math.min(50, Math.max(1, Number.parseInt(getStr(fd, 'batchSize') ?? '20', 10) || 20));
     const db = getDb();
     const waiting = await db
@@ -69,6 +73,9 @@ export async function resendInvitation(electionId: string, voterId: string, _p: 
   return run(async () => {
     const { user, election } = await requireElectionAction(electionId);
     assertInvitable(election);
+    if (!(await checkLimitClosed('emailSend', user.email))) {
+      throw new AppError('Too many emails. Please wait a few minutes and try again.');
+    }
     if (!isUuid(voterId)) throw new AppError('Voter not found.');
     const [v] = await getDb()
       .select({ id: voters.id, email: voters.email, name: voters.name, hasVoted: voters.hasVoted })
