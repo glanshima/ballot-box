@@ -6,7 +6,8 @@ import { electionFor, getAdminUser } from '@/lib/authz';
 import { getDb } from '@/lib/db/client';
 import { getElection, isUuid } from '@/lib/db/queries';
 import { nominees } from '@/lib/db/schema';
-import { nominationsOpen } from '@/lib/election-rules';
+import { memberSuggestionsOpen, nominationsOpen } from '@/lib/election-rules';
+import { readMemberSession } from '@/lib/nominations/session';
 import { checkLimitClosed, getClientIp } from '@/lib/ratelimit';
 import { hashToken, TOKEN_REGEX } from '@/lib/tokens';
 import { pathnameAllowed, policyFor, UPLOAD_KINDS } from '@/lib/upload-policy';
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         const parsed = payloadSchema.safeParse(JSON.parse(clientPayload ?? '{}'));
         if (!parsed.success) throw new Error('Invalid upload request');
-        const kind = parsed.data.kind as 'option' | 'nomination-photo' | 'nomination-receipt';
+        const kind = parsed.data.kind as 'option' | 'nomination-photo' | 'nomination-receipt' | 'suggestion';
         const { electionId } = parsed.data;
         if (!isUuid(electionId) || !pathnameAllowed(kind, electionId, pathname)) throw new Error('Invalid path');
         if (!(await checkLimitClosed('upload', ip))) throw new Error('Rate limited');
@@ -51,6 +52,9 @@ export async function POST(request: Request) {
           const user = await getAdminUser(); // verify the admin session here, as required
           if (!user || !(await electionFor(user, electionId))) throw new Error('Unauthorised');
           if (election.status !== 'draft') throw new Error('Election is locked');
+        } else if (kind === 'suggestion') {
+          const session = await readMemberSession(electionId);
+          if (!session || !memberSuggestionsOpen(election, new Date())) throw new Error('Suggestions are closed');
         } else if (!nominationsOpen(election, new Date())) {
           // Consent photos use the same kind, but only a live consent token may upload
           // once the nomination window has closed.

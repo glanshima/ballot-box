@@ -1,7 +1,7 @@
 import { del } from '@vercel/blob';
 import { eq, or } from 'drizzle-orm';
 import { getDb } from './db/client';
-import { nominations, options } from './db/schema';
+import { nominations, optionSuggestions, options } from './db/schema';
 
 /** Best-effort delete. Never throws: a failed delete must not break the admin action. */
 export async function deleteBlobsByUrl(urls: (string | null | undefined)[]) {
@@ -34,5 +34,11 @@ export async function deleteIfUnreferenced(url: string | null | undefined, path:
     .where(or(eq(nominations.photoPath, path), eq(nominations.receiptPath, path)))
     .limit(1);
   if (inNoms) return;
+  const [inSuggestions] = await db
+    .select({ id: optionSuggestions.id })
+    .from(optionSuggestions)
+    .where(eq(optionSuggestions.imagePath, path))
+    .limit(1);
+  if (inSuggestions) return;
   await deleteBlobsByUrl([url]);
 }

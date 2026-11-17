@@ -4,7 +4,7 @@ import { logAudit } from '@/lib/audit';
 import { getDb } from '@/lib/db/client';
 import { getElection } from '@/lib/db/queries';
 import { memberOtps, voters } from '@/lib/db/schema';
-import { memberNominationsOpen } from '@/lib/election-rules';
+import { memberFlowOpen } from '@/lib/election-rules';
 import { nominationKeys } from '@/lib/nominations/keys';
 import {
   hashesEqual,
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
   }
 
   const election = await getElection(electionId);
-  if (!election || !memberNominationsOpen(election, now)) {
+  if (!election || !memberFlowOpen(election, now)) {
     return json({ ok: false, error: 'Nominations are closed.' }, 403);
   }
 

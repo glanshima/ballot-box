@@ -126,6 +126,20 @@ export default async function Details({ params }: { params: Promise<{ id: string
         </section>
       )}
 
+      {election.type === 'poll' && election.nominationMode === 'member' && election.nominationsEnabled && (
+        <section className="card">
+          <h2 className="mb-1 font-bold text-slate-900">Public suggestion link</h2>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <p className="min-w-0 flex-1 break-all text-sm text-slate-800">{nominateUrl}</p>
+            <CopyButton value={nominateUrl} label="Copy link" />
+          </div>
+          <p className="hint">
+            Share this link with members. They verify their email and suggest poll items. Approved suggestions become options on
+            the Suggestions tab. It works only while the election is a draft and before the nomination close time.
+          </p>
+        </section>
+      )}
+
       <section className="card">
         <h2 className="mb-4 font-bold text-slate-900">
           {mode === 'full' ? 'Edit details' : mode === 'extend' ? 'Extend closing time' : 'Details (locked)'}

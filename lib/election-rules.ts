@@ -56,3 +56,19 @@ export function nominationsOpen(e: E, now: Date): boolean {
 export function memberNominationsOpen(e: E, now: Date): boolean {
   return e.nominationMode === 'member' && nominationsOpen(e, now);
 }
+
+/** Poll items suggested by verified members while the election is a draft. */
+export function memberSuggestionsOpen(e: E, now: Date): boolean {
+  return (
+    e.type === 'poll' &&
+    e.status === 'draft' &&
+    e.nominationMode === 'member' &&
+    e.nominationsEnabled &&
+    (e.nominationsCloseAt === null || now < e.nominationsCloseAt)
+  );
+}
+
+/** Either public member flow needs a verified member session. */
+export function memberFlowOpen(e: E, now: Date): boolean {
+  return memberNominationsOpen(e, now) || memberSuggestionsOpen(e, now);
+}

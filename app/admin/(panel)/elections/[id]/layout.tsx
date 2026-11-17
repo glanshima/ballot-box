@@ -4,7 +4,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { TabNav } from '@/components/TabNav';
 import { isSuper, requireElectionPage } from '@/lib/authz';
 import { getDb } from '@/lib/db/client';
-import { nominations, nominees } from '@/lib/db/schema';
+import { nominations, nominees, optionSuggestions } from '@/lib/db/schema';
 
 export default async function ElectionLayout({
   children,
@@ -16,7 +16,13 @@ export default async function ElectionLayout({
   const { id } = await params;
   const { user, election } = await requireElectionPage(id);
   let pendingCount = 0;
-  if (election.nominationMode === 'member') {
+  if (election.type === 'poll' && election.nominationMode === 'member') {
+    const [row] = await getDb()
+      .select({ n: count() })
+      .from(optionSuggestions)
+      .where(and(eq(optionSuggestions.electionId, id), eq(optionSuggestions.status, 'pending')));
+    pendingCount = Number(row?.n ?? 0);
+  } else if (election.nominationMode === 'member') {
     const [row] = await getDb()
       .select({ n: count() })
       .from(nominees)
@@ -35,7 +41,9 @@ export default async function ElectionLayout({
     { href: '/options', label: 'Options' },
     ...(election.type === 'candidate'
       ? [{ href: '/nominations', label: 'Nominations', badge: pendingCount }]
-      : []),
+      : election.nominationMode === 'member'
+        ? [{ href: '/suggestions', label: 'Suggestions', badge: pendingCount }]
+        : []),
     { href: '/voters', label: 'Voters' },
     { href: '/invitations', label: 'Invitations' },
     { href: '/results', label: 'Results' },

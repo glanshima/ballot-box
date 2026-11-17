@@ -5,9 +5,9 @@ export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 export const RECEIPT_TYPES = [...IMAGE_TYPES, 'application/pdf'] as const;
 export const MAX_UPLOAD_BYTES = 2 * 1024 * 1024; // 2 MB, enforced by the Blob client token
 
-export type UploadKind = 'option' | 'nomination-photo' | 'nomination-receipt';
+export type UploadKind = 'option' | 'nomination-photo' | 'nomination-receipt' | 'suggestion';
 
-export const UPLOAD_KINDS: readonly UploadKind[] = ['option', 'nomination-photo', 'nomination-receipt'];
+export const UPLOAD_KINDS: readonly UploadKind[] = ['option', 'nomination-photo', 'nomination-receipt', 'suggestion'];
 
 export interface UploadPolicy {
   allowedContentTypes: string[];
@@ -19,7 +19,7 @@ export function policyFor(kind: UploadKind): UploadPolicy {
   return {
     allowedContentTypes: kind === 'nomination-receipt' ? [...RECEIPT_TYPES] : [...IMAGE_TYPES],
     maximumSizeInBytes: MAX_UPLOAD_BYTES,
-    prefix: kind === 'option' ? 'options' : 'nominations',
+    prefix: kind === 'option' ? 'options' : kind === 'suggestion' ? 'suggestions' : 'nominations',
   };
 }
 

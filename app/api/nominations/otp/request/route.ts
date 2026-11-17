@@ -4,7 +4,7 @@ import { logAudit } from '@/lib/audit';
 import { getDb } from '@/lib/db/client';
 import { getElection } from '@/lib/db/queries';
 import { memberOtps, voters } from '@/lib/db/schema';
-import { memberNominationsOpen } from '@/lib/election-rules';
+import { memberFlowOpen } from '@/lib/election-rules';
 import { sendNominationOtpEmail } from '@/lib/email';
 import { nominationKeys } from '@/lib/nominations/keys';
 import {
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   }
 
   const election = await getElection(electionId);
-  const open = !!election && memberNominationsOpen(election, new Date());
+  const open = !!election && memberFlowOpen(election, new Date());
   const db = getDb();
 
   let voter: { id: string; name: string | null } | undefined;

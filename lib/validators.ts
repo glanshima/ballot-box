@@ -104,6 +104,17 @@ export const memberNominationSchema = z
   })
   .strict();
 
+export const suggestionSchema = z
+  .object({
+    electionId: z.string().uuid(),
+    title: z.string().trim().min(2, 'Give the suggestion a title.').max(200),
+    description: optText(1000),
+    imageUrl: z.string().url().max(1000).optional(),
+    imagePath: z.string().max(500).optional(),
+  })
+  .strict()
+  .refine((v) => !!v.imageUrl === !!v.imagePath, { message: 'Invalid image.' });
+
 export const consentDecisionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('decline') }).strict(),
   z
