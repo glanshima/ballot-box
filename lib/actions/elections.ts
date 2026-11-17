@@ -31,7 +31,7 @@ function electionInput(fd: FormData) {
     requireImages: candidate && getBool(fd, 'requireImages'),
     opensAt: getStr(fd, 'opensAt'),
     closesAt: getStr(fd, 'closesAt'),
-    nominationsEnabled: candidate && getBool(fd, 'nominationsEnabled'),
+    nominationsEnabled: getBool(fd, 'nominationsEnabled'),
     nominationsCloseAt: getStr(fd, 'nominationsCloseAt'),
     nominationPositions: candidate ? [...new Set(positions)] : [],
     requirePurchaseEvidence: candidate && getBool(fd, 'requirePurchaseEvidence'),

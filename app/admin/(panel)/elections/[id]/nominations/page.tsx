@@ -1,4 +1,4 @@
-import { asc, count, desc, eq, sql } from 'drizzle-orm';
+import { asc, count, desc, eq } from 'drizzle-orm';
 import Image from 'next/image';
 import { ActionForm } from '@/components/ActionForm';
 import { CopyButton } from '@/components/CopyButton';
@@ -269,14 +269,20 @@ export default async function NominationsTab({ params }: { params: Promise<{ id:
   const draft = election.status === 'draft';
 
   if (election.nominationMode === 'member') {
-    const rows = await db
-      .select({
-        nominee: nominees,
-        nominatorCount: sql<number>`(select count(*)::int from ${nominators} where ${nominators.nomineeId} = ${nominees.id})`,
-      })
+    const nomineeRows = await db
+      .select()
       .from(nominees)
       .where(eq(nominees.electionId, id))
       .orderBy(asc(nominees.position), desc(nominees.createdAt));
+    // Counted separately: a correlated subquery in the select list renders unqualified
+    // column names ("nominee_id" = "id"), which silently counts zero.
+    const counts = await db
+      .select({ nomineeId: nominators.nomineeId, n: count() })
+      .from(nominators)
+      .where(eq(nominators.electionId, id))
+      .groupBy(nominators.nomineeId);
+    const byNominee = new Map(counts.map((c) => [c.nomineeId, Number(c.n)]));
+    const rows = nomineeRows.map((nominee) => ({ nominee, nominatorCount: byNominee.get(nominee.id) ?? 0 }));
     const [attachments] = await db
       .select({ n: count() })
       .from(nominationAttachments)

@@ -112,7 +112,7 @@ export function LoginCard({ notice }: { notice: LoginNotice }) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} aria-busy={pending} className="login-form">
+      <form onSubmit={handleSubmit} method="post" aria-busy={pending} className="login-form">
         <div className="login-fields">
           <div className="relative">
             <label htmlFor="admin-email" className="sr-only">Email Address</label>

@@ -44,10 +44,10 @@ export function ElectionFields({ election, mode = 'full', canSetLive }: {
       </div>
 
       <fieldset className="space-y-4 rounded-lg border border-slate-200 p-4" disabled={locked}>
-        <legend className="px-1 text-sm font-semibold">Nomination form (candidate elections)</legend>
+        <legend className="px-1 text-sm font-semibold">Public form</legend>
         <label className="flex min-h-11 items-center gap-3 text-sm">
           <input type="checkbox" name="nominationsEnabled" defaultChecked={election?.nominationsEnabled} className="h-5 w-5 accent-indigo-700" />
-          Accept nominations through a public form while the election is a draft
+          Accept nominations or poll suggestions while the election is a draft
         </label>
         <DateTimeField name="nominationsCloseAt" label="Nominations close (optional)" defaultValue={iso(election?.nominationsCloseAt)} />
         <div>
