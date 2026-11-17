@@ -1,6 +1,7 @@
-'use client';
+'use client';
 
 import { useState } from 'react';
+import { CopyButton } from './CopyButton';
 
 /** Downloads the results CSV and shows the SHA-256 the server computed over those exact bytes. */
 export function ExportResults({ electionId }: { electionId: string }) {
@@ -31,15 +32,27 @@ export function ExportResults({ electionId }: { electionId: string }) {
 
   return (
     <div className="card">
-      <h2 className="font-semibold">Export results</h2>
-      <p className="hint mb-3">The SHA-256 hash is also stored in the audit log. Re-hash the downloaded file to verify it is unchanged.</p>
-      <button type="button" className="btn btn-secondary" onClick={run} disabled={busy}>{busy ? 'Exporting…' : 'Download CSV'}</button>
+      <h2 className="font-bold text-slate-900">Export results</h2>
+      <p className="hint mb-3">
+        The SHA-256 hash is also stored in the audit log. Re-hash the downloaded file to verify it is unchanged.
+      </p>
+      <button type="button" className="btn btn-secondary" onClick={run} disabled={busy}>
+        {busy ? 'Exporting…' : 'Download CSV'}
+      </button>
       {hash && (
-        <p className="mt-3 break-all text-sm">
-          SHA-256: <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">{hash}</code>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <div className="min-w-0 flex-1">
+            <span className="block text-xs font-medium text-slate-500">SHA-256 Checksum</span>
+            <code className="block truncate text-xs text-slate-800">{hash}</code>
+          </div>
+          <CopyButton value={hash} label="Copy hash" />
+        </div>
+      )}
+      {error && (
+        <p role="alert" className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          {error}
         </p>
       )}
-      {error && <p role="alert" className="mt-2 text-sm text-red-800">{error}</p>}
     </div>
   );
 }

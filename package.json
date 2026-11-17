@@ -14,7 +14,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "seed": "tsx scripts/seed.ts",
-    "hash-password": "tsx scripts/hash-password.ts"
+    "hash-password": "tsx scripts/hash-password.ts",
+    "db:bootstrap": "tsx scripts/bootstrap-admin.ts",
+    "email:test": "tsx scripts/email-test.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

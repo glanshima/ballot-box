@@ -11,18 +11,20 @@ import { admins, electionAdmins, type Election } from './db/schema';
 export type AdminUser = { id: string; email: string; name: string; role: Role };
 
 /**
- * Current admin, or null. For delegated admins the account is re-read from the DB
- * so that deactivating an admin takes effect immediately (JWTs live up to 8h).
+ * Current admin, or null. The row is always re-read so deactivation, role changes,
+ * and password changes take effect immediately (JWTs live up to 8h).
  */
 export const getAdminUser = cache(async (): Promise<AdminUser | null> => {
   const session = await auth();
   const u = session?.user;
   if (!u?.id || !u.role || !u.email) return null;
-  if (u.role === 'admin') {
-    const [row] = await getDb().select({ isActive: admins.isActive }).from(admins).where(eq(admins.id, u.id)).limit(1);
-    if (!row?.isActive) return null;
-  }
-  return { id: u.id, email: u.email, name: u.name ?? '', role: u.role };
+  const [row] = await getDb()
+    .select({ isActive: admins.isActive, role: admins.role, sessionVersion: admins.sessionVersion })
+    .from(admins)
+    .where(eq(admins.id, u.id))
+    .limit(1);
+  if (!row?.isActive || row.sessionVersion !== u.sessionVersion) return null;
+  return { id: u.id, email: u.email, name: u.name ?? '', role: row.role };
 });
 
 export const isSuper = (u: AdminUser) => u.role === 'super_admin';
@@ -44,7 +46,7 @@ export async function electionFor(user: AdminUser, electionId: string): Promise<
 // ---- Pages (redirect / 404) ----
 export async function requireAdminPage(): Promise<AdminUser> {
   const u = await getAdminUser();
-  if (!u) redirect('/admin/login');
+  if (!u) redirect('/?expired=1');
   return u;
 }
 export async function requireSuperPage(): Promise<AdminUser> {

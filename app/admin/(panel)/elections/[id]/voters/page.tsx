@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { ActionForm } from '@/components/ActionForm';
 import { StatusBadge } from '@/components/StatusBadge';
 import { VoterImport } from '@/components/VoterImport';
@@ -15,48 +15,90 @@ export default async function VotersTab({ params }: { params: Promise<{ id: stri
   const list = await getDb().select().from(voters).where(eq(voters.electionId, id)).orderBy(asc(voters.email));
   const draft = election.status === 'draft';
   const voted = list.filter((v) => v.hasVoted).length;
+  const pct = list.length ? Math.round((voted / list.length) * 100) : 0;
 
   return (
     <div className="space-y-6">
-      <div className="card">
-        <h2 className="text-sm font-medium text-slate-700">Turnout</h2>
-        <p className="text-2xl font-bold">{voted} / {list.length}</p>
-        <p className="hint">Shows who has voted, never what they voted for.</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="card">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Eligible voters</p>
+          <p className="mt-1 text-3xl font-bold text-slate-900 tabular-nums">{list.length}</p>
+        </div>
+        <div className="card">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Votes cast</p>
+          <p className="mt-1 text-3xl font-bold text-indigo-700 tabular-nums">{voted}</p>
+        </div>
+        <div className="card">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Participation</p>
+          <p className="mt-1 text-3xl font-bold text-slate-900 tabular-nums">{pct}%</p>
+          <p className="hint mt-0.5">Shows participation only, never choices.</p>
+        </div>
       </div>
 
       {draft ? (
-        <>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <section className="card">
-            <h2 className="mb-3 font-semibold">Import voters from CSV</h2>
+            <h2 className="mb-3 font-bold text-slate-900">Import voters from CSV</h2>
             <VoterImport electionId={id} />
           </section>
           <section className="card">
-            <h2 className="mb-3 font-semibold">Add a single voter</h2>
-            <ActionForm action={addVoter.bind(null, id)} className="space-y-3" submitLabel="Add voter" resetOnSuccess>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div><label className="label">Email *</label><input name="email" type="email" className="input" required /></div>
-                <div><label className="label">Name</label><input name="name" className="input" /></div>
+            <h2 className="mb-3 font-bold text-slate-900">Add a single voter</h2>
+            <ActionForm action={addVoter.bind(null, id)} className="space-y-3.5" submitLabel="Add voter" resetOnSuccess>
+              <div>
+                <label className="label">Email *</label>
+                <input name="email" type="email" className="input" required />
+              </div>
+              <div>
+                <label className="label">Name</label>
+                <input name="name" className="input" />
               </div>
             </ActionForm>
           </section>
-        </>
+        </div>
       ) : (
-        <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">The voter list is locked now that the election has been launched.</p>
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          The voter list is locked now that the election has been launched.
+        </p>
       )}
 
       <section className="card overflow-x-auto">
-        <h2 className="mb-3 font-semibold">Voter list ({list.length})</h2>
-        {list.length === 0 ? <p className="text-slate-700">No voters yet.</p> : (
+        <h2 className="mb-3 font-bold text-slate-900">Voter list ({list.length})</h2>
+        {list.length === 0 ? (
+          <p className="text-sm text-slate-600">No voters added yet.</p>
+        ) : (
           <table className="w-full min-w-[32rem] text-left text-sm">
-            <thead><tr className="border-b border-slate-200 text-slate-700"><th className="py-2 pr-2">Email</th><th className="py-2 pr-2">Name</th><th className="py-2 pr-2">Invite</th><th className="py-2 pr-2">Voted</th>{draft && <th />}</tr></thead>
-            <tbody>
+            <thead>
+              <tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <th className="py-2.5 pr-3">Email</th>
+                <th className="py-2.5 pr-3">Name</th>
+                <th className="py-2.5 pr-3">Invite</th>
+                <th className="py-2.5 pr-3">Voted</th>
+                {draft && <th />}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
               {list.map((v) => (
-                <tr key={v.id} className="border-b border-slate-100">
-                  <td className="py-2 pr-2 break-all">{v.email}</td>
-                  <td className="py-2 pr-2">{v.name}</td>
-                  <td className="py-2 pr-2"><StatusBadge value={v.inviteStatus} /></td>
-                  <td className="py-2 pr-2">{v.hasVoted ? 'Yes' : 'No'}</td>
-                  {draft && <td className="py-1 text-right"><ActionForm action={removeVoter.bind(null, id, v.id)} submitLabel="Remove" submitClass="btn btn-secondary btn-sm" confirm="Remove this voter?">{null}</ActionForm></td>}
+                <tr key={v.id} className="hover:bg-slate-50/70">
+                  <td className="py-2.5 pr-3 break-all font-medium text-slate-900">{v.email}</td>
+                  <td className="py-2.5 pr-3 text-slate-600">{v.name ?? '—'}</td>
+                  <td className="py-2.5 pr-3"><StatusBadge value={v.inviteStatus} /></td>
+                  <td className="py-2.5 pr-3">
+                    {v.hasVoted ? (
+                      <span className="font-semibold text-emerald-700">Yes</span>
+                    ) : (
+                      <span className="text-slate-500">No</span>
+                    )}
+                  </td>
+                  {draft && (
+                    <td className="py-1.5 text-right">
+                      <ActionForm
+                        action={removeVoter.bind(null, id, v.id)}
+                        submitLabel="Remove"
+                        submitClass="btn btn-secondary btn-sm"
+                        confirm="Remove this voter?"
+                      />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

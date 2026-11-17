@@ -12,6 +12,9 @@ const PRESETS = {
   nominate: { n: 5, w: '10 m' as Window }, // per IP
   upload: { n: 30, w: '10 m' as Window }, // per IP
   api: { n: 60, w: '1 m' as Window }, // generic read endpoints
+  passwordReset: { n: 3, w: '1 h' as Window }, // per IP
+  passwordResetEmail: { n: 3, w: '1 h' as Window }, // per account
+  passwordSubmit: { n: 10, w: '1 h' as Window }, // per IP, valid reset-token submissions
 } as const;
 
 export type LimitName = keyof typeof PRESETS;
@@ -22,8 +25,8 @@ const limiters = new Map<LimitName, Ratelimit>();
 
 function getLimiter(name: LimitName): Ratelimit | null {
   if (redis === undefined) {
-    const url = process.env.UPSTASH_REDIS_REST_URL;
-    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+    const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
     redis = url && token ? new Redis({ url, token }) : null;
   }
   if (!redis) {

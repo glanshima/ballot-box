@@ -4,18 +4,20 @@ import { AppError } from './app-error';
 
 export { AppError };
 
-export type ActionState = { ok: boolean; error?: string; message?: string } | null;
+export type ActionState = { ok: boolean; error?: string; message?: string; link?: string } | null;
 
-/** Wrap a server action body: returns {ok,error|message}, rethrows redirects/notFound. */
-export async function run(fn: () => Promise<string | void>): Promise<ActionState> {
+/** Wrap a server action body: returns {ok,error|message|link}, rethrows redirects/notFound. */
+export async function run(fn: () => Promise<string | { message: string; link?: string } | void>): Promise<ActionState> {
   try {
-    const message = await fn();
-    return { ok: true, message: message ?? undefined };
+    const result = await fn();
+    if (typeof result === 'string') return { ok: true, message: result };
+    if (result) return { ok: true, message: result.message, link: result.link };
+    return { ok: true };
   } catch (e) {
     unstable_rethrow(e);
     if (e instanceof AppError) return { ok: false, error: e.message };
     if (e instanceof ZodError) return { ok: false, error: e.issues[0]?.message ?? 'Invalid input.' };
-    console.error('[action] unexpected error:', e instanceof Error ? e.name : 'unknown');
+    console.error('[action] unexpected error:', e instanceof Error ? `${e.name}: ${e.message}` : 'unknown');
     return { ok: false, error: 'Something went wrong. Please try again.' };
   }
 }

@@ -17,11 +17,14 @@ cp .env.example .env.local      # fill in values (see below)
 npm run hash-password -- "your admin password"   # paste output into ADMIN_PASSWORD_HASH
 npm run db:generate             # first time only: creates ./drizzle migrations; commit them
 npm run db:migrate              # applies them (or `npm run db:push` for a throwaway dev DB)
+npm run db:bootstrap            # creates the first super admin from ADMIN_EMAIL / ADMIN_PASSWORD_HASH (idempotent)
+                                # `npm run db:bootstrap -- --reset-password` replaces that admin's password from env
+                                # and (re)grants super-admin access
 npm run seed                    # optional demo election + poll + demo admin (prints voting links)
 npm run dev
 ```
 
-Sign in at `/admin/login` with `ADMIN_EMAIL` and your password. Without Upstash variables rate limiting is disabled (with a console warning); without Resend variables use **Export links as CSV**; without a Blob token image upload/delete is unavailable.
+Sign in at `/` with your admin email and password — the landing page is the only administrator sign-in (the old `/admin/login` route redirects there). Admins are database rows: super admins can promote other admins and issue one-time password links. `ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH` are read only by `db:bootstrap`; login never consults them. Without Upstash variables rate limiting is disabled (with a console warning); without Resend variables use **Export links as CSV** and hand out reset links manually; without a Blob token image upload/delete is unavailable.
 
 > `.env` files: each `$` in the bcrypt hash must be written `\$` (the `hash-password` script prints that form). In the Vercel dashboard paste it unescaped.
 
@@ -32,16 +35,34 @@ Sign in at `/admin/login` with `ADMIN_EMAIL` and your password. Without Upstash 
 | `DATABASE_URL` | Neon **pooled** connection string |
 | `TEST_DATABASE_URL` | Separate Neon branch for integration tests only |
 | `AUTH_SECRET` | `openssl rand -base64 32` |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` | The super admin |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` | Bootstrap only: seed the first super admin (`npm run db:bootstrap`). Rotate a password from `/admin/account`, or if locked out use `db:bootstrap -- --reset-password` (also restores super-admin access). |
 | `APP_URL` | Public URL, used in invitation links |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Email |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Rate limiting |
 | `BLOB_READ_WRITE_TOKEN` | Image storage |
 | `CRON_SECRET` | Protects `/api/cron/close-elections` |
 
+## Email (Resend)
+
+Sending domain: `ballotbox.sidgakstech.me`, a subdomain so the root domain's Zoho SPF (`v=spf1 include:zohomail.com -all`) is left alone.
+
+1. Resend → **Domains** → **Add domain**: `ballotbox.sidgakstech.me`, region `us-east-1` (use the region Resend shows in the records).
+2. Add the records Resend displays at the DNS provider (Namecheap for `sidgakstech.me`). The DKIM value is unique per domain; the others are:
+
+   | Type | Host (Namecheap) | Value |
+   |---|---|---|
+   | MX | `send.ballotbox` | `feedback-smtp.us-east-1.amazonses.com` (priority 10) |
+   | TXT | `send.ballotbox` | `v=spf1 include:amazonses.com ~all` |
+   | TXT | `resend._domainkey.ballotbox` | the `p=MIGf...` DKIM key Resend shows |
+
+   Optionally add `TXT _dmarc.ballotbox` = `v=DMARC1; p=none;` to start collecting DMARC reports. Namecheap's **Host** field takes the part before `.sidgakstech.me`.
+3. Wait for **Verified**, then create an API key scoped to this domain (**Sending access**).
+4. Set `RESEND_API_KEY` and `EMAIL_FROM="Ballot Box <no-reply@ballotbox.sidgakstech.me>"` in Vercel (Production and Preview) and locally; keep `APP_URL=https://ballotbox.sidgakstech.me` so invitation and reset links use the custom domain.
+5. Verify: `npm run email:test -- you@example.com` sends through the same env vars as the app and prints the Resend message id. Without the two variables, invitations must be exported as CSV and password-reset links copied by hand — the app never pretends an email was sent.
+
 ## How it works
 
-1. **Super admin** → *Admins*: create admin accounts (share the initial password securely). *New election*: set details and tick the admins who manage it (or assign later on the election's *Admins* tab).
+1. **Super admin** → *Admins*: create an admin and copy the one-time link shown (they set their own password; links expire after 30 minutes and work once). *New election*: set details and tick the admins who manage it (or assign later on the election's *Admins* tab).
 2. **Admin** → opens their election: edits details, adds options (candidates need a photo only if the election requires it; polls have an optional collapsed image field), imports voters from CSV with a preview, and optionally enables the **nomination form** and shares `/nominate/<electionId>`.
 3. Review **Nominations** (approve → becomes a candidate), then **Launch**. Options, voters and times lock (the closing time can still be extended; this is audit-logged).
 4. **Invitations**: email in batches, or *Export links as CSV*. Re-sending rotates that voter's token.
@@ -98,6 +119,7 @@ The hash is the SHA-256 of `drizzle/0000_curvy_stingray.sql`; `created_at` is th
 1. Push this repository to GitHub and **Import** it as a new Vercel project.
 2. Add integrations/services: **Neon** (Vercel Marketplace; copy the *pooled* URL to `DATABASE_URL`), **Upstash Redis** (Marketplace), **Vercel Blob** (Storage tab → creates `BLOB_READ_WRITE_TOKEN`), **Resend** (API key + verified sender → `RESEND_API_KEY`, `EMAIL_FROM`).
 3. Set the remaining env vars (`AUTH_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` unescaped, `APP_URL`, `CRON_SECRET`) for Production and Preview (use a separate Neon branch for Preview).
-4. Run migrations against the production database from your machine: `DATABASE_URL=<prod pooled url> npm run db:migrate`. Optionally seed demo data (`npm run seed`), then delete it.
-5. Deploy. Verify: `/admin/login` works; create an election; upload an image; send or export a link; vote; close and publish.
+4. Run migrations against the production database from your machine: `DATABASE_URL=<prod pooled url> npm run db:migrate`, then seed the first super admin: `DATABASE_URL=<prod pooled url> npm run db:bootstrap`. Optionally seed demo data (`npm run seed`), then delete it.
+5. Deploy. Verify: `/` loads the landing page and admin sign-in works; create an election; upload an image; send or export a link; vote; close and publish.
 6. Cron: Vercel → Project → Settings → Cron Jobs shows `/api/cron/close-elections`. Test with `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/cron/close-elections` (expect `{"closed":0}` or a count).
+7. After confirming the super admin can sign in, `ADMIN_PASSWORD_HASH` is no longer needed at runtime. Keep or remove it deliberately: `db:bootstrap` is the only reader. If you are ever locked out, generate a new hash, set `ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH`, and run `DATABASE_URL=<prod pooled url> npm run db:bootstrap -- --reset-password`. That is the break-glass path: it sets the password, makes the account an active super admin, and signs out its existing sessions.

@@ -46,11 +46,10 @@ export const adminCreateSchema = z
   .object({
     name: z.string().trim().min(2, 'Name is required.').max(100),
     email: z.string().trim().toLowerCase().email('Enter a valid email.').max(254),
-    password: z.string().min(10, 'Password must be at least 10 characters.').max(200),
   })
   .strict();
 
-export const passwordSchema = z.string().min(10, 'Password must be at least 10 characters.').max(200);
+export const passwordSchema = z.string().min(12, 'Password must be at least 12 characters.').max(200);
 
 export const choiceSchema = z.object({ position: z.string().max(200).nullable(), optionId: z.string().uuid().nullable() }).strict();
 

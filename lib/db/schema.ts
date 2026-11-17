@@ -13,15 +13,37 @@ import {
 
 // All primary keys are random v4 UUIDs (gen_random_uuid()).
 
-/** Delegated admins. The super admin is NOT stored here: it comes from env vars. */
+/** Admins (including super admins). The first super admin is seeded from env by scripts/bootstrap-admin.ts. */
 export const admins = pgTable('admins', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull().unique(),
   name: text('name').notNull(),
   passwordHash: text('password_hash').notNull(),
+  role: text('role', { enum: ['super_admin', 'admin'] })
+    .notNull()
+    .default('admin'),
+  /** Bumped on password change or role change; JWTs carrying an older value are rejected. */
+  sessionVersion: integer('session_version').notNull().default(1),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Single-use links for admin invites and password resets. Only the SHA-256 hash is stored. */
+export const adminPasswordTokens = pgTable(
+  'admin_password_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    adminId: uuid('admin_id')
+      .notNull()
+      .references(() => admins.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    purpose: text('purpose', { enum: ['reset', 'invite'] }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('admin_password_tokens_admin_idx').on(t.adminId)],
+);
 
 export const elections = pgTable('elections', {
   id: uuid('id').primaryKey().defaultRandom(),

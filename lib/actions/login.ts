@@ -19,5 +19,5 @@ export async function login(_prev: ActionState, fd: FormData): Promise<ActionSta
 }
 
 export async function logout() {
-  await signOut({ redirectTo: '/admin/login' });
+  await signOut({ redirectTo: '/' });
 }

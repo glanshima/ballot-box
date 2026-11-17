@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { and, count, eq } from 'drizzle-orm';
 import { StatusBadge } from '@/components/StatusBadge';
 import { TabNav } from '@/components/TabNav';
@@ -5,7 +6,13 @@ import { isSuper, requireElectionPage } from '@/lib/authz';
 import { getDb } from '@/lib/db/client';
 import { nominations } from '@/lib/db/schema';
 
-export default async function ElectionLayout({ children, params }: { children: React.ReactNode; params: Promise<{ id: string }> }) {
+export default async function ElectionLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const { user, election } = await requireElectionPage(id);
   const [pending] = await getDb()
@@ -16,7 +23,9 @@ export default async function ElectionLayout({ children, params }: { children: R
   const tabs = [
     { href: '', label: 'Details' },
     { href: '/options', label: 'Options' },
-    ...(election.type === 'candidate' ? [{ href: '/nominations', label: 'Nominations', badge: Number(pending?.n ?? 0) }] : []),
+    ...(election.type === 'candidate'
+      ? [{ href: '/nominations', label: 'Nominations', badge: Number(pending?.n ?? 0) }]
+      : []),
     { href: '/voters', label: 'Voters' },
     { href: '/invitations', label: 'Invitations' },
     { href: '/results', label: 'Results' },
@@ -25,11 +34,20 @@ export default async function ElectionLayout({ children, params }: { children: R
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h1 className="text-2xl font-bold">{election.title}</h1>
-        <StatusBadge value={election.status} />
-        <StatusBadge value={election.type} />
+      <div className="mb-4">
+        <Link
+          href="/admin"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 transition hover:text-indigo-700"
+        >
+          <span aria-hidden="true">←</span> All elections
+        </Link>
+        <div className="mt-2 flex flex-wrap items-center gap-2.5">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{election.title}</h1>
+          <StatusBadge value={election.status} />
+          <StatusBadge value={election.type} />
+        </div>
       </div>
+
       <TabNav base={`/admin/elections/${id}`} tabs={tabs} />
       {children}
     </div>

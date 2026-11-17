@@ -3,8 +3,9 @@ import { z } from 'zod';
 const schema = z.object({
   DATABASE_URL: z.string().min(1),
   AUTH_SECRET: z.string().min(16),
-  ADMIN_EMAIL: z.string().email(),
-  ADMIN_PASSWORD_HASH: z.string().min(20),
+  // Bootstrap only: scripts/bootstrap-admin.ts seeds the first super admin from these.
+  ADMIN_EMAIL: z.string().email().optional(),
+  ADMIN_PASSWORD_HASH: z.string().min(20).optional(),
   APP_URL: z.string().url(),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional(),

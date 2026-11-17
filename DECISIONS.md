@@ -19,8 +19,9 @@ Where the brief was ambiguous or something had to change, the simplest consisten
 | Modify ballots / results | **nobody** | **nobody** |
 
 - "Without being able to alter results" is enforced three ways: (1) no code path anywhere updates or deletes ballot rows; (2) everything that controls *when and to whom* results appear (close, publish, public visibility, live view) is super-admin-only; (3) admins can only edit an election while it is a draft, when no ballots can exist.
-- The super admin is the single account in env vars (`ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`). Delegated admins live in the `admins` table (bcrypt hashes) and are linked to elections via `election_admins`.
-- Admin sessions are JWTs (8h). Delegated admins are re-checked against the database on every request, so deactivating one takes effect immediately.
+- The super admin is a `role = 'super_admin'` row in `admins`, like any other admin; there can be several. `ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH` are read only by `npm run db:bootstrap`, which seeds the first one idempotently — login never consults env vars. The last active super admin cannot be deactivated or demoted.
+- Admin sessions are JWTs (8h). Every admin is re-read from the database on each request (active flag, role, and `session_version`), so deactivation, role changes and password changes take effect immediately.
+- **Password management**: `npm run db:bootstrap` is idempotent, but `-- --reset-password` is the break-glass path: it replaces the hash from env, sets `role = 'super_admin'` and `is_active = true`, and bumps `session_version`. It exists because email may be unconfigured and nobody may be able to sign in to issue a reset link; anyone able to run it already has database access. Admins change their own password from `/admin/account` (min 12 characters, bcrypt cost 12) and are signed out everywhere. Creation and resets use single-use links (`admin_password_tokens`, SHA-256 of a 32-byte token, 30 minutes, invalidated on issue/reuse). `/admin/forgot` answers identically whether or not the account exists. Resend is optional: super admins can copy a link when email is not configured.
 
 ## Nomination form
 
@@ -51,3 +52,12 @@ Where the brief was ambiguous or something had to change, the simplest consisten
 - **Migrations**: generate with `npm run db:generate` and commit `drizzle/`. The baseline (`drizzle/0000_curvy_stingray.sql`) is committed, so a fresh database is created with `npm run db:migrate` and CI fails if the schema drifts from the committed migrations (see README for the baseline procedure for databases created with `db:push`).
 - **`pg` is a dev dependency** used only by `drizzle-kit migrate`; the application runtime keeps using the Neon HTTP driver (`@neondatabase/serverless`).
 - **Orphaned blobs**: an image uploaded but never saved (admin abandons the form) is not cleaned up automatically. This is a rare, small leak; delete from the Blob dashboard if needed.
+
+## Landing page and admin sign-in
+
+- **`/` is the only administrator sign-in.** The landing page carries the login card; there is no separate admin login page and no "Go to Admin Login" link. `/admin/login` remains only as a `307` redirect to `/` (preserving `?changed`/`?expired`), middleware sends unauthenticated `/admin/*` visitors to `/`, and `requireAdminPage` sends an expired session to `/?expired=1`.
+- **No redirect loop for stale JWTs.** `/` calls `getAdminUser()`, which re-reads the admin row, and only redirects a *database-valid* admin to `/admin`. A JWT that outlived a password/role change renders the login card with the expiry notice instead of bouncing between `/` and `/admin`.
+- **"Remember me" is email recall only.** The checkbox keeps the admin email in `localStorage` (`ballotbox:admin-email`); the password is never stored anywhere and the session lifetime stays 8h. Unchecking it removes the saved email on the next submit.
+- **Contact actions** are fixed: `https://wa.me/2348032105862` (new tab), `tel:+2348032105862`, `mailto:info@sidgakstech.me`.
+- **The hero artwork is decorative.** `/branding/ballotbox-hero-bg.png` is rendered with `next/image` (`fill`, `priority`, `sizes="100vw"`); every heading, control and button is real HTML. A pale gradient wash keeps copy legible where the illustration sits behind it, and the two-column hero stacks below the `xl` breakpoint.
+- **Password visibility** is a client-side `type` toggle; it never clears or edits the input, is keyboard accessible, and exposes "Show password"/"Hide password" with `aria-pressed`.
