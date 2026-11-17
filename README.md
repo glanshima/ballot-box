@@ -111,7 +111,7 @@ npm run test:unit      # no database needed
 npm test               # also runs integration tests if TEST_DATABASE_URL is set
 ```
 
-Integration tests (including the 20-parallel-submission concurrency test) need a Neon test branch with the schema applied: `DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate`. They use the Neon HTTP driver, so a plain local PostgreSQL instance cannot run them. `tests/integration/nominations.test.ts` covers the member-mode unique constraints, nominator counting, the consent flow and export permissions, and is skipped when `TEST_DATABASE_URL` is absent.
+Integration tests (including the 20-parallel-submission concurrency test) need a Neon test branch with the schema applied. With `NEON_API_KEY` in `.env.test`, `npm run db:test:setup` creates the `integration-test` branch plus an empty `ballotbox_test` database and writes `TEST_DATABASE_URL`; then run `npm run db:test:migrate`, and `npm test` (or `npm run test:integration`) picks the branch up automatically. They use the Neon HTTP driver, so a plain local PostgreSQL instance cannot run them. `tests/integration/nominations.test.ts` covers the member-mode unique constraints, nominator counting, the consent flow and export permissions, and is skipped when `TEST_DATABASE_URL` is absent.
 
 ### Existing database created with `db:push`
 

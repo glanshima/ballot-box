@@ -162,6 +162,7 @@ identifiers are used where correlation is needed.
 - `npm run test:unit` — 76 tests passed.
 - `npm run build` — succeeded for the phases that introduced the export and
   member-mode code.
-- `npm test` integration suites were **not** run because no `TEST_DATABASE_URL`
-  was configured in this environment; they skip automatically. They must be run
-  against a dedicated Neon branch before relying on the constraint tests.
+- `npm test` — 112 tests passed, including the 36 integration tests, against a
+  dedicated Neon branch (`integration-test`, empty `ballotbox_test` database
+  migrated from scratch with `db:test:migrate`). The branch is a child of
+  production but the tests never use its `neondb` copy.

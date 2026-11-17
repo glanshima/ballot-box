@@ -24,6 +24,8 @@ vi.mock('@/lib/nominations/session', () => ({
   issueMemberSession: vi.fn(async () => {}),
   readMemberSession: vi.fn(async () => null),
 }));
+// Server actions call revalidatePath, which needs a Next request store.
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 
 const url = process.env.TEST_DATABASE_URL;
 const d = url ? describe : describe.skip;
@@ -289,7 +291,10 @@ d('nominations (integration)', () => {
     it('accepts once with a photo and cannot be replayed', async () => {
       const e = await makeElection();
       const token = x.t.generateToken();
-      const n = await makeNominee(e.id, { consent: { token, expiresAt: new Date(Date.now() + HOUR) } });
+      const n = await makeNominee(e.id, {
+        status: 'consent_sent',
+        consent: { token, expiresAt: new Date(Date.now() + HOUR) },
+      });
 
       const res = await consentRoute.POST(consentRequest(token, { action: 'accept', ...photoFor(e.id), bio: 'Hello' }), {
         params: Promise.resolve({ token }),
@@ -312,7 +317,10 @@ d('nominations (integration)', () => {
     it('expires a stale link without accepting it', async () => {
       const e = await makeElection();
       const token = x.t.generateToken();
-      const n = await makeNominee(e.id, { consent: { token, expiresAt: new Date(Date.now() - 1000) } });
+      const n = await makeNominee(e.id, {
+        status: 'consent_sent',
+        consent: { token, expiresAt: new Date(Date.now() - 1000) },
+      });
 
       const res = await consentRoute.POST(consentRequest(token, { action: 'decline' }), {
         params: Promise.resolve({ token }),
@@ -325,7 +333,10 @@ d('nominations (integration)', () => {
     it('records a decline', async () => {
       const e = await makeElection();
       const token = x.t.generateToken();
-      const n = await makeNominee(e.id, { consent: { token, expiresAt: new Date(Date.now() + HOUR) } });
+      const n = await makeNominee(e.id, {
+        status: 'consent_sent',
+        consent: { token, expiresAt: new Date(Date.now() + HOUR) },
+      });
 
       const res = await consentRoute.POST(consentRequest(token, { action: 'decline' }), {
         params: Promise.resolve({ token }),
@@ -339,7 +350,10 @@ d('nominations (integration)', () => {
     it('refuses a consent decision once the election is no longer a member-mode draft', async () => {
       const e = await makeElection({ status: 'open' });
       const token = x.t.generateToken();
-      await makeNominee(e.id, { consent: { token, expiresAt: new Date(Date.now() + HOUR) } });
+      await makeNominee(e.id, {
+        status: 'consent_sent',
+        consent: { token, expiresAt: new Date(Date.now() + HOUR) },
+      });
 
       const res = await consentRoute.POST(consentRequest(token, { action: 'decline' }), {
         params: Promise.resolve({ token }),
