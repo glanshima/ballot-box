@@ -104,4 +104,16 @@ export const memberNominationSchema = z
   })
   .strict();
 
+export const consentDecisionSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('decline') }).strict(),
+  z
+    .object({
+      action: z.literal('accept'),
+      photoUrl: z.string().url().max(1000),
+      photoPath: z.string().max(500),
+      bio: optText(1500),
+    })
+    .strict(),
+]);
+
 export type Choice = z.infer<typeof choiceSchema>;

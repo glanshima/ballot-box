@@ -119,7 +119,9 @@ export default async function Details({ params }: { params: Promise<{ id: string
             <CopyButton value={nominateUrl} label="Copy link" />
           </div>
           <p className="hint">
-            Share this link with aspirants. It works only while the election is a draft and before the nomination close time.
+            {election.nominationMode === 'member'
+              ? 'Share this link with members. They verify their email and nominate candidates. It works only while the election is a draft and before the nomination close time.'
+              : 'Share this link with aspirants. It works only while the election is a draft and before the nomination close time.'}
           </p>
         </section>
       )}

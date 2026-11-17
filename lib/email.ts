@@ -57,6 +57,47 @@ export async function sendPasswordResetEmail(args: { to: string; name: string; l
   if (error) throw new Error('Email provider rejected the message');
 }
 
+/**
+ * Asks a nominee to accept or decline their nomination. The link is single-use
+ * and expires after the election's consent window. Throws on failure.
+ */
+export async function sendConsentEmail(args: {
+  to: string;
+  name: string;
+  electionTitle: string;
+  position: string | null;
+  link: string;
+  expiresAt: Date;
+  hours: number;
+}) {
+  const env = getEnv();
+  if (!env.RESEND_API_KEY || !env.EMAIL_FROM) {
+    throw new Error('Email is not configured (RESEND_API_KEY / EMAIL_FROM).');
+  }
+  const resend = new Resend(env.RESEND_API_KEY);
+  const greeting = `Hello ${esc(args.name)},`;
+  const position = args.position ? ` for ${esc(args.position)}` : '';
+  const expires = args.expiresAt.toUTCString();
+  const { error } = await resend.emails.send({
+    from: env.EMAIL_FROM,
+    to: args.to,
+    subject: `Consent needed: ${args.electionTitle}`,
+    text:
+      `Hello ${args.name},\n\n` +
+      `You have been nominated${args.position ? ` for ${args.position}` : ''} in "${args.electionTitle}".\n\n` +
+      `To appear on the ballot you need to give consent, add a photo and (optionally) a short bio:\n${args.link}\n\n` +
+      `This link works once and expires in ${args.hours} hours (${expires}).\n` +
+      `If you were not expecting this, you can ignore this email and you will not appear on the ballot.\n`,
+    html:
+      `<p>${greeting}</p>` +
+      `<p>You have been nominated${position} in <strong>${esc(args.electionTitle)}</strong>.</p>` +
+      `<p><a href="${esc(args.link)}">Review and respond to the nomination</a></p>` +
+      `<p style="color:#555">This link works once and expires in ${args.hours} hours (${esc(expires)}). ` +
+      `If you were not expecting this, ignore this email and you will not appear on the ballot.</p>`,
+  });
+  if (error) throw new Error('Email provider rejected the message');
+}
+
 /** One-time code proving the recipient is on an election's voter roll. Throws on failure. */
 export async function sendNominationOtpEmail(args: {
   to: string;

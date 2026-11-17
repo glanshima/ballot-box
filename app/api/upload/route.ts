@@ -1,16 +1,24 @@
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
+import { and, eq, gt, sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { electionFor, getAdminUser } from '@/lib/authz';
+import { getDb } from '@/lib/db/client';
 import { getElection, isUuid } from '@/lib/db/queries';
+import { nominees } from '@/lib/db/schema';
 import { nominationsOpen } from '@/lib/election-rules';
 import { checkLimitClosed, getClientIp } from '@/lib/ratelimit';
+import { hashToken, TOKEN_REGEX } from '@/lib/tokens';
 import { pathnameAllowed, policyFor, UPLOAD_KINDS } from '@/lib/upload-policy';
 
 export const dynamic = 'force-dynamic';
 
 const payloadSchema = z
-  .object({ kind: z.enum(UPLOAD_KINDS as [string, ...string[]]), electionId: z.string().uuid() })
+  .object({
+    kind: z.enum(UPLOAD_KINDS as [string, ...string[]]),
+    electionId: z.string().uuid(),
+    consentToken: z.string().max(100).optional(),
+  })
   .strict();
 
 /**
@@ -44,7 +52,24 @@ export async function POST(request: Request) {
           if (!user || !(await electionFor(user, electionId))) throw new Error('Unauthorised');
           if (election.status !== 'draft') throw new Error('Election is locked');
         } else if (!nominationsOpen(election, new Date())) {
-          throw new Error('Nominations are closed');
+          // Consent photos use the same kind, but only a live consent token may upload
+          // once the nomination window has closed.
+          const consentToken = parsed.data.consentToken;
+          const usable = kind === 'nomination-photo' && consentToken && TOKEN_REGEX.test(consentToken);
+          if (!usable) throw new Error('Nominations are closed');
+          const [n] = await getDb()
+            .select({ id: nominees.id })
+            .from(nominees)
+            .where(
+              and(
+                eq(nominees.electionId, electionId),
+                eq(nominees.consentTokenHash, hashToken(consentToken)),
+                eq(nominees.status, 'consent_sent'),
+                gt(nominees.consentExpiresAt, sql`now()`),
+              ),
+            )
+            .limit(1);
+          if (!n) throw new Error('Consent link expired');
         }
 
         const p = policyFor(kind);

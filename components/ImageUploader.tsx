@@ -23,6 +23,7 @@ export function ImageUploader({
   initialUrl,
   initialPath,
   onChange,
+  consentToken,
 }: {
   kind: UploadKind;
   electionId: string;
@@ -34,6 +35,8 @@ export function ImageUploader({
   initialUrl?: string | null;
   initialPath?: string | null;
   onChange?: (v: Uploaded) => void;
+  /** Public consent uploads may continue after nominations close; the endpoint verifies this token. */
+  consentToken?: string;
 }) {
   const id = useId();
   const isReceipt = kind === 'nomination-receipt';
@@ -66,7 +69,7 @@ export function ImageUploader({
       const blob = await upload(requestedPathname(kind, electionId, contentType), body, {
         access: 'public',
         handleUploadUrl: '/api/upload',
-        clientPayload: JSON.stringify({ kind, electionId }),
+        clientPayload: JSON.stringify({ kind, electionId, ...(consentToken ? { consentToken } : {}) }),
         contentType,
       });
       const pathname = new URL(blob.url).pathname.replace(/^\//, '');

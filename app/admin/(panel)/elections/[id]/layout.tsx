@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, eq, inArray } from 'drizzle-orm';
 import { StatusBadge } from '@/components/StatusBadge';
 import { TabNav } from '@/components/TabNav';
 import { isSuper, requireElectionPage } from '@/lib/authz';
 import { getDb } from '@/lib/db/client';
-import { nominations } from '@/lib/db/schema';
+import { nominations, nominees } from '@/lib/db/schema';
 
 export default async function ElectionLayout({
   children,
@@ -15,16 +15,26 @@ export default async function ElectionLayout({
 }) {
   const { id } = await params;
   const { user, election } = await requireElectionPage(id);
-  const [pending] = await getDb()
-    .select({ n: count() })
-    .from(nominations)
-    .where(and(eq(nominations.electionId, id), eq(nominations.status, 'pending')));
+  let pendingCount = 0;
+  if (election.nominationMode === 'member') {
+    const [row] = await getDb()
+      .select({ n: count() })
+      .from(nominees)
+      .where(and(eq(nominees.electionId, id), inArray(nominees.status, ['ready', 'accepted'])));
+    pendingCount = Number(row?.n ?? 0);
+  } else {
+    const [row] = await getDb()
+      .select({ n: count() })
+      .from(nominations)
+      .where(and(eq(nominations.electionId, id), eq(nominations.status, 'pending')));
+    pendingCount = Number(row?.n ?? 0);
+  }
 
   const tabs = [
     { href: '', label: 'Details' },
     { href: '/options', label: 'Options' },
     ...(election.type === 'candidate'
-      ? [{ href: '/nominations', label: 'Nominations', badge: Number(pending?.n ?? 0) }]
+      ? [{ href: '/nominations', label: 'Nominations', badge: pendingCount }]
       : []),
     { href: '/voters', label: 'Voters' },
     { href: '/invitations', label: 'Invitations' },

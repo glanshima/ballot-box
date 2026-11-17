@@ -15,7 +15,8 @@ const PRESETS = {
   otpRequestEmail: { n: 5, w: '15 m' as Window }, // per election + email hash
   otpVerifyIp: { n: 10, w: '15 m' as Window }, // per IP
   otpVerifyEmail: { n: 10, w: '15 m' as Window }, // per election + email hash
-  emailSend: { n: 6, w: '10 m' as Window }, // per admin sending invitation email batches
+  emailSend: { n: 6, w: '10 m' as Window }, // per admin sending invitation/consent email batches
+  consentSubmit: { n: 10, w: '10 m' as Window }, // per IP answering a consent link
   api: { n: 60, w: '1 m' as Window }, // generic read endpoints
   passwordReset: { n: 3, w: '1 h' as Window }, // per IP
   passwordResetEmail: { n: 3, w: '1 h' as Window }, // per account
