@@ -34,11 +34,17 @@ export function ExportResults({ electionId }: { electionId: string }) {
     <div className="card">
       <h2 className="font-bold text-slate-900">Export results</h2>
       <p className="hint mb-3">
-        The SHA-256 hash is also stored in the audit log. Re-hash the downloaded file to verify it is unchanged.
+        The SHA-256 hash is also stored in the audit log. The PDF includes turnout, tallies, the integrity check and the same
+        results hash. Re-hash the downloaded file to verify it is unchanged.
       </p>
-      <button type="button" className="btn btn-secondary" onClick={run} disabled={busy}>
-        {busy ? 'Exporting…' : 'Download CSV'}
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn btn-secondary" onClick={run} disabled={busy}>
+          {busy ? 'Exporting…' : 'Download CSV'}
+        </button>
+        <a className="btn btn-secondary" href={`/api/admin/elections/${electionId}/results-pdf`}>
+          Download PDF
+        </a>
+      </div>
       {hash && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
           <div className="min-w-0 flex-1">

@@ -32,6 +32,22 @@ const STATUS_COPY: Record<string, string> = {
   rejected: 'Rejected by an organiser.',
 };
 
+function ExportPdfCard({ electionId }: { electionId: string }) {
+  return (
+    <div className="card flex flex-wrap items-center justify-between gap-3 !py-3">
+      <div className="min-w-0 flex-1 text-xs">
+        <span className="font-semibold text-slate-500">Nominations PDF: </span>
+        <span className="font-medium text-slate-800">
+          Includes private proofs of membership and signatures. Store the download confidentially.
+        </span>
+      </div>
+      <a className="btn btn-secondary btn-sm" href={`/api/admin/elections/${electionId}/nominations-pdf`}>
+        Download PDF
+      </a>
+    </div>
+  );
+}
+
 function groupByPosition(rows: MemberRow[], positions: string[]) {
   const map = new Map<string | null, MemberRow[]>();
   for (const row of rows) {
@@ -55,6 +71,7 @@ function MemberNominations({ election, rows, draft }: { election: Election; rows
 
   return (
     <div className="space-y-4">
+      <ExportPdfCard electionId={election.id} />
       {election.nominationsEnabled ? (
         <div className="card flex flex-wrap items-center justify-between gap-2 !py-3">
           <div className="min-w-0 flex-1 text-xs">
@@ -239,6 +256,7 @@ export default async function NominationsTab({ params }: { params: Promise<{ id:
 
   return (
     <div className="space-y-4">
+      <ExportPdfCard electionId={election.id} />
       {election.nominationsEnabled ? (
         <div className="card flex flex-wrap items-center justify-between gap-2 !py-3">
           <div className="min-w-0 flex-1 text-xs">

@@ -64,6 +64,18 @@ export default async function InvitationsTab({ params }: { params: Promise<{ id:
         </div>
       )}
 
+      <section className="card flex flex-wrap items-center justify-between gap-3 !py-3">
+        <div className="min-w-0 flex-1 text-xs">
+          <span className="font-semibold text-slate-500">Status report (PDF): </span>
+          <span className="font-medium text-slate-800">
+            Names, emails, invite status and whether each voter has voted. It never contains voting links or tokens.
+          </span>
+        </div>
+        <a className="btn btn-secondary btn-sm" href={`/api/admin/elections/${id}/invitations-pdf`}>
+          Download PDF
+        </a>
+      </section>
+
       <section className="card overflow-x-auto">
         <h2 className="mb-3 font-bold text-slate-900">Per-voter status</h2>
         <table className="w-full min-w-[30rem] text-left text-sm">
